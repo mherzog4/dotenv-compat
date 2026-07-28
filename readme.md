@@ -11,9 +11,10 @@ Checked against the reference by 127 recorded test vectors and two differential
 fuzzers, plus a split-context adversarial review that compared every function
 against the JavaScript source line by line.
 
-Three dependencies, each earning its place: `aes-gcm` for `.env.vault`
+Four dependencies, each earning its place: `aes-gcm` for `.env.vault`
 decryption, `url` for `DOTENV_KEY` parsing (the same WHATWG standard `new URL()`
-implements), and `libc` on Unix for the `getpwuid()` home-directory fallback.
+implements), and `libc` / `windows-sys` for the home-directory fallback when
+`HOME` or `USERPROFILE` is unset. Only two are ever compiled for a given target.
 The parser itself and all of Node's `Buffer` encodings are dependency-free.
 
 ## Usage
@@ -124,7 +125,6 @@ Only two differences remain, both forced by the language rather than chosen:
 | --- | --- |
 | Errors are returned, not thrown | The reference `throw`s for vault failures. Rust has no exceptions, so those surface on `ConfigResult::error` with an empty `parsed`. `Error::code()` gives the JavaScript `err.code`. |
 | Unpaired surrogates | With `encoding: "utf16le"`, a lone surrogate survives in JavaScript but cannot exist in a Rust `String`, so it becomes U+FFFD. |
-| `os.homedir()` on Windows | With `USERPROFILE` unset, libuv calls `GetUserProfileDirectoryW`; that is not wired up, so a leading `~` is left unexpanded. The Unix `getpwuid()` fallback *is* implemented. |
 
 Faithful on purpose, and easy to mistake for bugs:
 

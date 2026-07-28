@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+### Added
+
+- **`GetUserProfileDirectoryW` fallback** in `os.homedir()`, for Windows with
+  `USERPROFILE` unset. This was the last remaining behavioural gap: the port now
+  matches the reference everywhere except where the language forbids it.
+  Implemented the way libuv does -- `OpenProcessToken` for a query token, a
+  null-buffer call to size the result, then the real call -- and reading up to
+  the NUL terminator rather than trusting the returned length, also as libuv does.
+- A test covering the fallback on both platforms, by unsetting the home variable
+  and asserting a leading `~` still expands.
+
+### Dependencies
+
+- `windows-sys` on Windows targets only.
+
 ## 0.2.0 — unreleased
 
 Closes the three remaining divergences, so the port is now exact apart from two

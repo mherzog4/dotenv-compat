@@ -37,6 +37,7 @@ fn config_and_populate() {
     config_reports_a_missing_file(&dir);
     config_expands_tilde(&dir);
     config_honours_the_encoding_option(&dir);
+    config_falls_back_to_the_password_database();
 
     fs::remove_dir_all(&dir).ok();
 }
@@ -182,5 +183,34 @@ fn config_honours_the_encoding_option(dir: &Path) {
     assert_eq!(
         error.to_string(),
         "The argument 'encoding' is invalid encoding. Received 'bogus'"
+    );
+}
+
+/// With the home variable unset, `os.homedir()` consults the password database
+/// (`getpwuid` on Unix, `GetUserProfileDirectoryW` on Windows). Either way a
+/// leading `~` must still expand.
+fn config_falls_back_to_the_password_database() {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    let previous = std::env::var_os(var);
+    // SAFETY: single-threaded test.
+    unsafe { std::env::remove_var(var) };
+
+    // The file will not exist; the error reports the resolved path, which is the
+    // thing under test.
+    let result = load(&quiet(vec![PathBuf::from("~/dotenv-compat-probe.env")]));
+    let reported = result.error.expect("missing file is reported").to_string();
+
+    // SAFETY: single-threaded test.
+    if let Some(home) = previous {
+        unsafe { std::env::set_var(var, home) };
+    }
+
+    assert!(
+        !reported.contains('~'),
+        "`~` was left unexpanded with {var} unset: {reported}"
+    );
+    assert!(
+        reported.contains("dotenv-compat-probe.env"),
+        "unexpected error: {reported}"
     );
 }

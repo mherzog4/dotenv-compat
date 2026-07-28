@@ -435,9 +435,50 @@ fn passwd_home() -> Option<PathBuf> {
     }
 }
 
-/// Windows has no password database; libuv falls back to
-/// `GetUserProfileDirectoryW`, which is not wired up here.
-#[cfg(not(unix))]
+/// `GetUserProfileDirectoryW`, the fallback libuv uses on Windows when
+/// `USERPROFILE` is unset.
+#[cfg(windows)]
+fn passwd_home() -> Option<PathBuf> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::Security::TOKEN_QUERY;
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    use windows_sys::Win32::UI::Shell::GetUserProfileDirectoryW;
+
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: `token` is a valid out-pointer. `GetCurrentProcess` returns a
+    // pseudo-handle that must not be closed, which is why only `token` is.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return None;
+    }
+
+    // A null buffer asks for the required length, in UTF-16 units.
+    let mut len: u32 = 0;
+    // SAFETY: the documented way to query the size; failure is expected here.
+    unsafe { GetUserProfileDirectoryW(token, std::ptr::null_mut(), &mut len) };
+
+    let mut buffer = vec![0u16; len as usize];
+    // SAFETY: `buffer` holds exactly the `len` units just requested.
+    let ok = unsafe { GetUserProfileDirectoryW(token, buffer.as_mut_ptr(), &mut len) };
+    // SAFETY: `token` came from `OpenProcessToken` and is not used again.
+    unsafe { CloseHandle(token) };
+
+    if ok == 0 {
+        return None;
+    }
+
+    // Trust the NUL terminator rather than the returned length, as libuv does.
+    let end = buffer
+        .iter()
+        .position(|&unit| unit == 0)
+        .unwrap_or(buffer.len());
+    let dir = OsString::from_wide(&buffer[..end]);
+    (!dir.is_empty()).then(|| PathBuf::from(dir))
+}
+
+/// Neither Unix nor Windows: no password database to consult.
+#[cfg(not(any(unix, windows)))]
 fn passwd_home() -> Option<PathBuf> {
     None
 }
