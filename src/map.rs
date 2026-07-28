@@ -122,3 +122,69 @@ impl std::fmt::Debug for EnvMap {
         f.debug_map().entries(self.iter()).finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn of(pairs: &[(&str, &str)]) -> EnvMap {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn replace_keeps_position_like_a_js_object() {
+        let map = of(&[("Z", "1"), ("M", "2"), ("A", "3"), ("M", "4")]);
+        let order: Vec<&str> = map.keys().map(String::as_str).collect();
+        assert_eq!(order, ["Z", "M", "A"]);
+        assert_eq!(map["M"], "4");
+        assert_eq!(map.len(), 3);
+    }
+
+    #[test]
+    fn insert_reports_the_previous_value() {
+        let mut map = EnvMap::new();
+        assert_eq!(map.insert("K".into(), "a".into()), None);
+        assert_eq!(map.insert("K".into(), "b".into()), Some("a".to_string()));
+        assert_eq!(map["K"], "b");
+    }
+
+    /// The side index must stay in step with the entry list, or lookups start
+    /// returning the wrong value.
+    #[test]
+    fn index_stays_consistent() {
+        let mut map = EnvMap::new();
+        for round in 0..3 {
+            for i in 0..50 {
+                map.insert(format!("K{i}"), format!("{round}-{i}"));
+            }
+        }
+        assert_eq!(map.len(), 50);
+        for i in 0..50 {
+            let key = format!("K{i}");
+            assert!(map.contains_key(&key));
+            assert_eq!(map.get(&key).unwrap(), &format!("2-{i}"));
+        }
+        let order: Vec<String> = map.keys().cloned().collect();
+        let expected: Vec<String> = (0..50).map(|i| format!("K{i}")).collect();
+        assert_eq!(order, expected);
+    }
+
+    #[test]
+    fn equality_ignores_order() {
+        assert_eq!(of(&[("A", "1"), ("B", "2")]), of(&[("B", "2"), ("A", "1")]));
+        assert_ne!(of(&[("A", "1")]), of(&[("A", "2")]));
+        assert_ne!(of(&[("A", "1")]), of(&[("A", "1"), ("B", "2")]));
+    }
+
+    #[test]
+    fn empty_and_missing() {
+        let map = EnvMap::new();
+        assert!(map.is_empty());
+        assert_eq!(map.get("nope"), None);
+        assert!(!map.contains_key("nope"));
+        assert_eq!(map.iter().count(), 0);
+    }
+}

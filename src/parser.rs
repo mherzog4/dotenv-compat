@@ -331,3 +331,91 @@ fn starts_with(c: &[char], at: usize, word: &str) -> bool {
     let n = word.len();
     at + n <= c.len() && c[at..at + n].iter().copied().eq(word.chars())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `strip_quotes` has a no-newline fast path and a general path. They must
+    /// agree wherever both are defined, or a value silently changes shape
+    /// depending on whether it happens to contain a line terminator.
+    #[test]
+    fn strip_quotes_paths_agree() {
+        let alphabet = ['\'', '"', '`', 'a', '\\', ' '];
+        let mut checked = 0usize;
+
+        for len in 0..=5 {
+            let mut indices = vec![0usize; len];
+            loop {
+                let s: String = indices.iter().map(|&i| alphabet[i]).collect();
+                assert_eq!(
+                    strip_quotes(&s).into_owned(),
+                    strip_quotes_multiline(&s),
+                    "paths disagree on {s:?}"
+                );
+                checked += 1;
+
+                let mut at = len;
+                loop {
+                    if at == 0 {
+                        break;
+                    }
+                    at -= 1;
+                    indices[at] += 1;
+                    if indices[at] < alphabet.len() {
+                        break;
+                    }
+                    indices[at] = 0;
+                    if at == 0 {
+                        break;
+                    }
+                }
+                if len == 0 || indices.iter().all(|&i| i == 0) {
+                    break;
+                }
+            }
+        }
+
+        assert!(checked > 9000, "only checked {checked} strings");
+    }
+
+    /// `parse` is fed untrusted file content and must never panic, whatever the
+    /// bytes are. Exhaustive over short strings from a hostile alphabet.
+    #[test]
+    fn never_panics_on_short_inputs() {
+        let alphabet = [
+            'A', '=', '\'', '"', '`', '\\', '#', '\n', ' ', ':', '\u{2028}', '\u{0}',
+        ];
+        let mut buf = String::new();
+
+        for len in 0..=4 {
+            let total = alphabet.len().pow(len as u32);
+            for mut n in 0..total {
+                buf.clear();
+                for _ in 0..len {
+                    buf.push(alphabet[n % alphabet.len()]);
+                    n /= alphabet.len();
+                }
+                // The assertion is simply that this returns.
+                let _ = parse(buf.as_bytes());
+            }
+        }
+    }
+
+    /// The outer loop must always advance, on any input.
+    #[test]
+    fn terminates_on_pathological_input() {
+        for input in [
+            "=".repeat(5000),
+            "\u{2028}".repeat(5000),
+            "'".repeat(5000),
+            "\\'".repeat(5000),
+            format!("A='{}", "a\\'".repeat(2000)),
+            format!("A=\"{}", "\\\"".repeat(2000)),
+            format!("{}A=1", " ".repeat(5000)),
+            format!("{}\nA=1", "x".repeat(5000)),
+        ] {
+            let _ = parse(input.as_bytes());
+        }
+    }
+}
