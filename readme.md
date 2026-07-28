@@ -17,8 +17,9 @@ No dependencies.
 
 ```rust,no_run
 fn main() {
-    // Load ./.env into the process environment. Call before spawning threads.
-    dotenv_compat::config();
+    // SAFETY: `config` writes the process environment, which is not thread-safe.
+    // Call it before spawning any threads.
+    unsafe { dotenv_compat::config() };
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     println!("listening on {port}");
@@ -30,12 +31,13 @@ Loading specific files, or letting `.env` values win over what is already set:
 ```rust,no_run
 use dotenv_compat::Options;
 
-let result = dotenv_compat::config_with(&Options {
-    path: Some(vec![".env".into(), "~/.env.local".into()]),
-    overwrite: true,
-    quiet: true,
-    ..Options::default()
-});
+let options = Options::default()
+    .with_path(Some(vec![".env".into(), "~/.env.local".into()]))
+    .with_overwrite(true)
+    .with_quiet(true);
+
+// SAFETY: no other thread may touch the environment during this call.
+let result = unsafe { dotenv_compat::config_with(&options) };
 
 if let Some(error) = &result.error {
     eprintln!("could not load a .env file: {error}");
@@ -68,12 +70,12 @@ assert_eq!(written.len(), 1);        // only HOST was written
 | Item | Maps to | Notes |
 | --- | --- | --- |
 | `parse(&[u8]) -> EnvMap` | `parse` | Never fails. Invalid UTF-8 is replaced lossily, matching `Buffer.toString()`. |
-| `config() -> ConfigResult` | `config` | Loads `./.env`. Honours `DOTENV_KEY` (see below). |
-| `config_with(&Options)` | `configDotenv` | Loads the configured files. No `DOTENV_KEY` handling, same as the reference. |
+| `unsafe fn config() -> ConfigResult` | `config` | Loads `./.env`. Honours `DOTENV_KEY` (see below). |
+| `unsafe fn config_with(&Options)` | `configDotenv` | Loads the configured files. No `DOTENV_KEY` handling, same as the reference. |
 | `populate(&mut EnvMap, &EnvMap, &Options) -> EnvMap` | `populate` | Pure; returns only the keys it wrote. |
-| `Options` | | `path`, `overwrite`, `debug`, `quiet`. `Options::from_env()` is `lib/env-options.js`. |
+| `Options` | | `#[non_exhaustive]`; build with `Options::default()` and the `with_*` methods. `Options::from_env()` ports `lib/env-options.js` only — the `dotenv/config` preload also forces `quiet` on, so add `.with_quiet(true)` to emulate it. |
 | `ConfigResult` | | `parsed`, plus `error` for the last unreadable file. Missing files are not fatal. |
-| `EnvMap` | a JS object | Insertion-ordered string map, so results stay in file order. |
+| `EnvMap` | a JS object | Ordered string map. Array-index keys enumerate first (ascending), then the rest in insertion order -- exactly as a JS object does. |
 | `Error::kind()` | `err.code` | `ErrorKind::NotFound` is the `ENOENT` equivalent. |
 
 `Options::path` is `Option<Vec<PathBuf>>`, mirroring the JavaScript distinction:
@@ -128,15 +130,30 @@ Faithful on purpose, and easy to mistake for bugs:
 * `DOTENV_CONFIG_OVERRIDE=false` turns overriding **on**. The reference copies the raw string into `options.override` and applies `Boolean()`, not `parseBoolean`, so every non-empty value is truthy.
 * `DOTENV_CONFIG_DEBUG` / `DOTENV_CONFIG_QUIET` are read on every `config_with` call and beat the explicit option. They are re-read after population, so a `.env` that sets `DOTENV_CONFIG_QUIET=true` silences its own summary line.
 * A `__proto__` key is silently dropped. Assigning it on a plain JavaScript object hits the prototype setter and creates no own property.
-* `populate`'s `debug` is a *different flag* from `config`'s: the reference reads the raw option there, with no `DOTENV_CONFIG_DEBUG` input.
+* `populate`'s debug is a *different flag* from `config`'s (`Options::populate_debug`). The reference applies `Boolean()` to the raw option there and `parseBoolean` in `configDotenv`, so `DOTENV_CONFIG_DEBUG=false` silences config's diagnostics while **enabling** populate's per-key lines.
+* Integer-like keys enumerate first. `ZED=1 / 2=two / AAA=3` yields `2, ZED, AAA`, because JavaScript hoists array-index keys (canonical decimals below 2³²−1) ahead of string keys.
 `◇ injected env (N) from .env` to stderr just like the original. Set `quiet: true`
 to silence it.
 
 ## Thread safety
 
-`config` and `config_with` call `std::env::set_var`, which is unsound if another
-thread reads the environment concurrently. Call them early in `main`, before
-spawning threads. `parse` and `populate` touch no global state.
+`config` and `config_with` are `unsafe fn`. They call `std::env::set_var`, which
+is undefined behaviour if any other thread reads or writes the environment
+concurrently -- including from C code, and including reads this crate never sees.
+There is no way for the crate to enforce that, so the obligation is the caller's
+and the signature says so. In practice: call them early in `main`, before
+spawning threads.
+
+`parse` and `populate` are safe and touch no global state. If you would rather
+not take on the obligation, use those and apply the result yourself.
+
+### Memory
+
+`parse` decodes to a `Vec<char>` to keep the index arithmetic a direct
+transcription of the reference regex, so peak memory is a multiple of input size
+-- roughly 6x for ASCII and up to 17x for input that is mostly invalid UTF-8
+(each bad byte becomes a 4-byte `char`). Fine for `.env` files; do not point it
+at a 100 MB blob.
 
 ## Development
 

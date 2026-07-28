@@ -7,6 +7,11 @@
 //!
 //! Re-assigning an existing key keeps its original position and replaces the
 //! value, which is what property assignment does in JavaScript.
+//!
+//! Enumeration order is not plain insertion order. JavaScript yields *array
+//! index* keys first, in ascending numeric order, and only then the remaining
+//! keys in insertion order. `dotenv` keys are `[\w.-]+`, which permits all-digit
+//! keys, so `ZED=1 / 2=two / AAA=3` enumerates as `2, ZED, AAA`.
 
 use std::collections::HashMap;
 use std::ops::Index;
@@ -50,18 +55,60 @@ impl EnvMap {
         self.entries.is_empty()
     }
 
-    /// Entries in insertion order.
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &String)> {
-        self.entries.iter().map(|(k, v)| (k, v))
+    /// Entries in JavaScript enumeration order: array-index keys ascending, then
+    /// the rest in insertion order.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &String)> + '_ {
+        self.order()
+            .into_iter()
+            .map(move |at| (&self.entries[at].0, &self.entries[at].1))
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &String> {
-        self.entries.iter().map(|(k, _)| k)
+    pub fn keys(&self) -> impl Iterator<Item = &String> + '_ {
+        self.iter().map(|(k, _)| k)
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &String> {
-        self.entries.iter().map(|(_, v)| v)
+    pub fn values(&self) -> impl Iterator<Item = &String> + '_ {
+        self.iter().map(|(_, v)| v)
     }
+
+    /// Positions into `entries`, in enumeration order.
+    fn order(&self) -> Vec<usize> {
+        let mut indexed: Vec<(u32, usize)> = Vec::new();
+        let mut rest: Vec<usize> = Vec::new();
+
+        for (at, (key, _)) in self.entries.iter().enumerate() {
+            match array_index(key) {
+                Some(n) => indexed.push((n, at)),
+                None => rest.push(at),
+            }
+        }
+
+        if indexed.is_empty() {
+            return rest;
+        }
+        indexed.sort_unstable();
+        let mut order: Vec<usize> = indexed.into_iter().map(|(_, at)| at).collect();
+        order.extend(rest);
+        order
+    }
+}
+
+/// A JavaScript array index: the canonical decimal form of an integer in
+/// `0..=2^32-2`. Only these keys are hoisted to the front of enumeration.
+///
+/// Canonical means no leading zero (`"01"` is an ordinary key), no sign, no
+/// whitespace and no exponent, and `"4294967295"` is one past the limit.
+fn array_index(key: &str) -> Option<u32> {
+    let bytes = key.as_bytes();
+    if bytes.is_empty() || !bytes.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+    if bytes.len() > 1 && bytes[0] == b'0' {
+        return None;
+    }
+    // Longer than u32::MAX's digit count cannot be in range, and would overflow.
+    let n: u64 = key.parse().ok()?;
+    (n < u32::MAX as u64).then_some(n as u32)
 }
 
 impl Index<&str> for EnvMap {
@@ -86,7 +133,13 @@ impl IntoIterator for EnvMap {
     type IntoIter = std::vec::IntoIter<(String, String)>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.entries.into_iter()
+        let order = self.order();
+        let mut slots: Vec<Option<(String, String)>> = self.entries.into_iter().map(Some).collect();
+        let ordered: Vec<(String, String)> = order
+            .into_iter()
+            .map(|at| slots[at].take().expect("each position visited once"))
+            .collect();
+        ordered.into_iter()
     }
 }
 

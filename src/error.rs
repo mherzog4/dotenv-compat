@@ -1,12 +1,13 @@
 use std::fmt;
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A failure encountered while loading a `.env` file.
 ///
 /// Mirrors the `error` field the reference implementation puts on its config
 /// result: a missing or unreadable file is reported, never fatal.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// The file could not be read.
     Io {
@@ -37,7 +38,7 @@ impl Error {
     }
 
     /// The file this error is about.
-    pub fn path(&self) -> &PathBuf {
+    pub fn path(&self) -> &Path {
         match self {
             Error::Io { path, .. } | Error::VaultUnsupported { path } => path,
         }

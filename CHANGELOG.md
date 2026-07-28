@@ -22,9 +22,17 @@ refactor (206 lines, no vault, different logging) rather than the released
   `DOTENV_KEY` missing-vault warning, and non-fatal reporting of unreadable
   files with Node-style `ENOENT:` messages.
 - `populate` — pure form, over any `EnvMap`.
-- `EnvMap` — insertion-ordered map, so results stay in file order like a plain
-  JavaScript object.
+- `EnvMap` — ordered map reproducing JavaScript object enumeration: array-index
+  keys first in ascending numeric order, then the rest in insertion order.
 - `Options`, `ConfigResult`, `Error` (with `kind()` as the `err.code` equivalent).
+  Both `Options` and `Error` are `#[non_exhaustive]`; `Options` has `with_*`
+  builders.
+
+### Safety
+
+`config` and `config_with` are `unsafe fn`. They write the process environment,
+which is undefined behaviour if any other thread reads it concurrently, and the
+crate cannot enforce that. `parse` and `populate` are safe.
 
 ### Testing
 
@@ -32,13 +40,16 @@ refactor (206 lines, no vault, different logging) rather than the released
   reference implementation rather than hand-written.
 - Two differential fuzzers (`scripts/fuzz.mjs` for `parse`, `scripts/fuzz-config.mjs`
   for `config`), run on Linux, macOS and Windows in CI.
-- A split-context adversarial review of every function against the JavaScript
-  source, which found 20 divergences the fuzzers could not reach — including a
-  process-killing panic on a NUL byte and a wrong value for U+2028.
+- Two split-context adversarial reviews — one against the JavaScript source, one
+  hunting logic bugs — which together found 26 issues the fuzzers could not
+  reach: a process-killing panic on a NUL byte, a wrong value for U+2028,
+  `__proto__` leaking into the environment, JavaScript's array-index key
+  ordering, and a safe function wrapping `set_var`.
 - Readme examples run as doctests.
 
 ### Known differences
 
 See "Differences from the JavaScript version" in the readme: no `.env.vault`
 decryption, no `encoding` option, NUL truncation instead of a panic, and no
-`getpwuid()` fallback when `HOME` is unset.
+`getpwuid()` fallback when `HOME` is unset. `parse` also holds the input as a
+`Vec<char>`, so peak memory is a multiple of input size.

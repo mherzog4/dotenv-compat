@@ -24,7 +24,11 @@ const TIPS: [&str; 8] = [
 ];
 
 /// Settings for [`config_with`].
+///
+/// Marked `#[non_exhaustive]`: build one with [`Options::default`] and either
+/// assign fields or chain the `with_*` methods.
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct Options {
     /// Files to load, in order.
     ///
@@ -38,16 +42,53 @@ pub struct Options {
     pub debug: bool,
     /// Suppress the summary line. `DOTENV_CONFIG_QUIET` takes precedence.
     pub quiet: bool,
+    /// What [`populate`](crate::populate) treats as "debug". `None` mirrors [`Self::debug`].
+    ///
+    /// The reference applies `Boolean()` to the raw option here but `parseBoolean`
+    /// in `configDotenv`, so `DOTENV_CONFIG_DEBUG=false` silences config's own
+    /// diagnostics while *enabling* populate's per-key lines. One `bool` cannot
+    /// carry both meanings, so [`Options::from_env`] sets this separately.
+    pub populate_debug: Option<bool>,
 }
 
 impl Options {
-    /// The options `dotenv/config` builds from `DOTENV_CONFIG_*`, ported from
-    /// the reference's `lib/env-options.js`.
+    /// Files to load. `None` is the default `./.env`; `Some(vec![])` loads nothing.
+    pub fn with_path(mut self, path: Option<Vec<PathBuf>>) -> Self {
+        self.path = path;
+        self
+    }
+
+    /// Replace variables that are already set.
+    pub fn with_overwrite(mut self, overwrite: bool) -> Self {
+        self.overwrite = overwrite;
+        self
+    }
+
+    /// Print per-key decisions to stdout.
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    /// Suppress the summary line.
+    pub fn with_quiet(mut self, quiet: bool) -> Self {
+        self.quiet = quiet;
+        self
+    }
+
+    /// The options built from `DOTENV_CONFIG_*`, ported from the reference's
+    /// `lib/env-options.js`.
     ///
-    /// Note `DOTENV_CONFIG_OVERRIDE`: the reference copies the raw string into
-    /// `options.override` and `populate` then applies `Boolean()` to it, not
-    /// `parseBoolean`. So *any* non-empty value -- including `"false"`, `"0"`
-    /// and `"off"` -- turns overriding ON. That is reproduced here.
+    /// This is *not* the whole `dotenv/config` preload: that is
+    /// `Object.assign({}, env-options, cli-options(argv))`, and `lib/cli-options.js`
+    /// additionally forces `quiet` on unless `dotenv_config_quiet=` appears in
+    /// argv. To emulate the preload, add [`Options::with_quiet(true)`](Self::with_quiet).
+    ///
+    /// Note `DOTENV_CONFIG_OVERRIDE` and `DOTENV_CONFIG_DEBUG`: the reference
+    /// copies the raw strings into the options object, and `populate` applies
+    /// `Boolean()` to them rather than `parseBoolean`. So *any* non-empty value --
+    /// including `"false"`, `"0"` and `"off"` -- turns overriding on and enables
+    /// populate's per-key lines. Both are reproduced here.
     pub fn from_env() -> Options {
         let mut options = Options::default();
 
@@ -60,6 +101,8 @@ impl Options {
         }
         if let Ok(value) = std::env::var("DOTENV_CONFIG_DEBUG") {
             options.debug = parse_boolean(&value);
+            // `Boolean(rawString)`, not `parseBoolean` -- see the note above.
+            options.populate_debug = Some(!value.is_empty());
         }
         if let Ok(value) = std::env::var("DOTENV_CONFIG_OVERRIDE") {
             options.overwrite = !value.is_empty();
@@ -86,20 +129,27 @@ pub struct ConfigResult {
 /// # Safety
 ///
 /// This calls [`std::env::set_var`], which is not thread-safe: another thread
-/// reading the environment concurrently (including from C code) is undefined
-/// behaviour. Call this early in `main`, before spawning any threads.
-pub fn config() -> ConfigResult {
+/// reading the environment concurrently -- including from C code, and including
+/// reads this crate never sees -- is undefined behaviour. The caller must ensure
+/// no other thread touches the environment for the duration of the call, which
+/// in practice means calling it early in `main`, before spawning any threads.
+///
+/// [`parse`](crate::parse) and [`populate`](crate::populate) are safe and touch
+/// no global state; use them if you want to apply a `.env` yourself.
+pub unsafe fn config() -> ConfigResult {
     let options = Options::default();
 
     if dotenv_key().is_none() {
-        return config_with(&options);
+        // SAFETY: forwarded to our own caller by `config` being `unsafe`.
+        return unsafe { config_with(&options) };
     }
 
     match vault_path(&options) {
         None => {
             // The reference interpolates the null it just computed.
             warn("you set DOTENV_KEY but you are missing a .env.vault file at null");
-            config_with(&options)
+            // SAFETY: forwarded to our own caller by `config` being `unsafe`.
+            unsafe { config_with(&options) }
         }
         Some(path) => {
             // Falling back to a plain `.env` would load a different set of secrets,
@@ -155,8 +205,9 @@ fn with_vault_suffix(path: &Path) -> PathBuf {
 ///
 /// # Safety
 ///
-/// See [`config`] -- must be called before any other thread touches the environment.
-pub fn config_with(options: &Options) -> ConfigResult {
+/// See [`config`] -- the caller must ensure no other thread reads or writes the
+/// environment for the duration of the call.
+pub unsafe fn config_with(options: &Options) -> ConfigResult {
     // `parseBoolean(processEnv.DOTENV_CONFIG_DEBUG || options.debug)`
     let mut debug = env_flag("DOTENV_CONFIG_DEBUG", options.debug);
     let mut quiet = env_flag("DOTENV_CONFIG_QUIET", options.quiet);
@@ -200,7 +251,8 @@ pub fn config_with(options: &Options) -> ConfigResult {
         }
     }
 
-    let populated = populate_process_env(&parsed_all, options);
+    // SAFETY: forwarded to our own caller by `config_with` being `unsafe`.
+    let populated = unsafe { populate_process_env(&parsed_all, options) };
 
     // Re-read, so a `.env` that sets DOTENV_CONFIG_QUIET silences its own summary.
     debug = env_flag("DOTENV_CONFIG_DEBUG", debug);
@@ -222,7 +274,10 @@ pub fn config_with(options: &Options) -> ConfigResult {
     }
 }
 
-fn populate_process_env(parsed: &EnvMap, options: &Options) -> EnvMap {
+/// # Safety
+///
+/// The caller must ensure no other thread touches the environment concurrently.
+unsafe fn populate_process_env(parsed: &EnvMap, options: &Options) -> EnvMap {
     let mut set = |key: &str, value: &str| {
         // The reference tolerates a NUL byte here (libuv truncates the exported
         // value at it); `set_var` would panic, taking the whole process down for
@@ -232,8 +287,7 @@ fn populate_process_env(parsed: &EnvMap, options: &Options) -> EnvMap {
             Some(at) => &value[..at],
             None => value,
         };
-        // SAFETY: documented on `config` -- the caller must not have other threads
-        // running. There is no thread-safe way to write the process environment.
+        // SAFETY: the caller of this `unsafe fn` guarantees no concurrent access.
         unsafe { std::env::set_var(key, value) };
     };
     // `var_os`, not `vars()`: a variable holding non-UTF-8 bytes still exists and

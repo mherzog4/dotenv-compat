@@ -760,5 +760,41 @@
     "category": "edge",
     "input": "A=v\u0000",
     "description": "nul byte at end of value"
+  },
+  {
+    "name": "order_numeric_first",
+    "category": "order",
+    "input": "ZED=1\n2=two\nAAA=3\n10=ten\n0=zero",
+    "description": "array-index keys enumerate first, ascending"
+  },
+  {
+    "name": "order_numeric_noncanonical",
+    "category": "order",
+    "input": "B=1\n01=x\n4294967295=y\n7=z\n00=w",
+    "description": "only canonical decimals below 2^32-1 are indices"
+  },
+  {
+    "name": "order_all_numeric",
+    "category": "order",
+    "input": "30=a\n4=b\n100=c\n0=d",
+    "description": "all-numeric keys sort numerically not lexically"
+  },
+  {
+    "name": "order_numeric_dup",
+    "category": "order",
+    "input": "5=a\nX=b\n5=c",
+    "description": "repeated numeric key keeps its slot"
+  },
+  {
+    "name": "order_big_index",
+    "category": "order",
+    "input": "4294967294=max\nA=1",
+    "description": "2^32-2 is the largest array index"
+  },
+  {
+    "name": "order_dotted_numeric",
+    "category": "order",
+    "input": "1.2=a\nB=b",
+    "description": "a dotted numeric key is not an array index"
   }
 ]

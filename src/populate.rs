@@ -24,10 +24,10 @@ pub fn populate(target: &mut EnvMap, parsed: &EnvMap, options: &Options) -> EnvM
 /// `config()` uses this against the real process environment, where existence has to
 /// be probed with `var_os` (a variable can hold non-UTF-8 bytes and still exist).
 ///
-/// Note this reads `options.debug` directly rather than the environment-resolved
-/// flag `config()` computes for itself: the reference's `populate` uses
-/// `Boolean(options.debug)` with no `DOTENV_CONFIG_DEBUG` input, so the two
-/// functions genuinely disagree about what "debug" means.
+/// Note the debug flag here is [`Options::populate_debug`], falling back to
+/// [`Options::debug`]: the reference's `populate` applies `Boolean()` to the raw
+/// option while `configDotenv` applies `parseBoolean`, so the two functions
+/// genuinely disagree about what "debug" means when it came from the environment.
 pub(crate) fn populate_with(
     parsed: &EnvMap,
     options: &Options,
@@ -48,7 +48,7 @@ pub(crate) fn populate_with(
                 set(key, value);
                 populated.insert(key.clone(), value.clone());
             }
-            if options.debug {
+            if options.populate_debug.unwrap_or(options.debug) {
                 let verb = if options.overwrite {
                     "WAS overwritten"
                 } else {

@@ -20,11 +20,14 @@ LITERAL='no \n expansion in single quotes'
     )
     .unwrap();
 
-    let result = dotenv_compat::config_with(&Options {
-        path: Some(vec![path.clone()]),
-        quiet: true,
-        ..Options::default()
-    });
+    // SAFETY: nothing else in this example runs concurrently.
+    let result = unsafe {
+        dotenv_compat::config_with(
+            &Options::default()
+                .with_path(Some(vec![path.clone()]))
+                .with_quiet(true),
+        )
+    };
 
     if let Some(error) = &result.error {
         eprintln!("warning: {error}");

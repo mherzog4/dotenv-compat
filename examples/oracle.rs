@@ -74,12 +74,15 @@ fn run_config_case(reader: &mut Reader, out: &mut Vec<u8>) {
         unsafe { std::env::set_var(key, value) };
     }
 
-    let result = dotenv_compat::config_with(&Options {
-        path: Some(paths),
-        overwrite,
-        quiet: true,
-        debug: false,
-    });
+    // SAFETY: this binary is single-threaded by construction.
+    let result = unsafe {
+        dotenv_compat::config_with(
+            &Options::default()
+                .with_path(Some(paths))
+                .with_overwrite(overwrite)
+                .with_quiet(true),
+        )
+    };
 
     // Every key either implementation could have touched.
     let mut touched: Vec<String> = result.parsed.keys().cloned().collect();

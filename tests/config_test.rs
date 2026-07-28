@@ -9,11 +9,12 @@ use std::path::{Path, PathBuf};
 use dotenv_compat::{EnvMap, Options, populate};
 
 fn quiet(path: Vec<PathBuf>) -> Options {
-    Options {
-        path: Some(path),
-        quiet: true,
-        ..Options::default()
-    }
+    Options::default().with_path(Some(path)).with_quiet(true)
+}
+
+/// SAFETY: this test crate is single-threaded by construction (see the module docs).
+fn load(options: &Options) -> dotenv_compat::ConfigResult {
+    unsafe { dotenv_compat::config_with(options) }
 }
 
 fn map(pairs: &[(&str, &str)]) -> EnvMap {
@@ -58,10 +59,7 @@ fn populate_overwrites_when_asked() {
     let written = populate(
         &mut target,
         &parsed,
-        &Options {
-            overwrite: true,
-            ..Options::default()
-        },
+        &Options::default().with_overwrite(true),
     );
 
     assert_eq!(target["KEEP"], "replacement");
@@ -72,7 +70,7 @@ fn config_loads_a_file(dir: &Path) {
     let path = dir.join("basic.env");
     fs::write(&path, "DOTENV_RS_A=one\nDOTENV_RS_B=\"two three\"\n").unwrap();
 
-    let result = dotenv_compat::config_with(&quiet(vec![path]));
+    let result = load(&quiet(vec![path]));
 
     assert!(result.error.is_none());
     assert_eq!(result.parsed["DOTENV_RS_A"], "one");
@@ -87,13 +85,10 @@ fn config_respects_existing_env(dir: &Path) {
     // SAFETY: single-threaded test.
     unsafe { std::env::set_var("DOTENV_RS_PRESET", "from_env") };
 
-    dotenv_compat::config_with(&quiet(vec![path.clone()]));
+    load(&quiet(vec![path.clone()]));
     assert_eq!(std::env::var("DOTENV_RS_PRESET").unwrap(), "from_env");
 
-    let result = dotenv_compat::config_with(&Options {
-        overwrite: true,
-        ..quiet(vec![path])
-    });
+    let result = load(&quiet(vec![path]).with_overwrite(true));
     assert_eq!(std::env::var("DOTENV_RS_PRESET").unwrap(), "from_file");
     // `parsed` reports the file contents regardless of what was applied.
     assert_eq!(result.parsed["DOTENV_RS_PRESET"], "from_file");
@@ -105,20 +100,17 @@ fn config_cascades_across_files(dir: &Path) {
     fs::write(&first, "DOTENV_RS_CASCADE=first\n").unwrap();
     fs::write(&second, "DOTENV_RS_CASCADE=second\n").unwrap();
 
-    let earlier = dotenv_compat::config_with(&quiet(vec![first.clone(), second.clone()]));
+    let earlier = load(&quiet(vec![first.clone(), second.clone()]));
     assert_eq!(earlier.parsed["DOTENV_RS_CASCADE"], "first");
 
-    let later = dotenv_compat::config_with(&Options {
-        overwrite: true,
-        ..quiet(vec![first, second])
-    });
+    let later = load(&quiet(vec![first, second]).with_overwrite(true));
     assert_eq!(later.parsed["DOTENV_RS_CASCADE"], "second");
 }
 
 fn config_reports_a_missing_file(dir: &Path) {
     let missing = dir.join("does-not-exist.env");
 
-    let result = dotenv_compat::config_with(&quiet(vec![missing]));
+    let result = load(&quiet(vec![missing]));
 
     assert!(result.parsed.is_empty());
     let error = result.error.expect("missing file should be reported");
@@ -131,7 +123,7 @@ fn config_expands_tilde(dir: &Path) {
     unsafe { std::env::set_var("HOME", dir) };
 
     fs::write(dir.join("tilde.env"), "DOTENV_RS_TILDE=yes\n").unwrap();
-    let result = dotenv_compat::config_with(&quiet(vec![PathBuf::from("~/tilde.env")]));
+    let result = load(&quiet(vec![PathBuf::from("~/tilde.env")]));
 
     assert!(result.error.is_none(), "{:?}", result.error);
     assert_eq!(result.parsed["DOTENV_RS_TILDE"], "yes");

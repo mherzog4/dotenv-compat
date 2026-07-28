@@ -33,7 +33,9 @@ function rnd () {
 const pick = arr => arr[Math.floor(rnd() * arr.length)]
 const chance = p => rnd() < p
 
-const KEYS = ['A', 'KEY', 'a.b', 'a-b', '_x', '123', 'export', 'K', 'lower', 'A B', '', 'k$', 'kéy']
+const KEYS = ['A', 'KEY', 'a.b', 'a-b', '_x', '123', 'export', 'K', 'lower', 'A B', '', 'k$', 'kéy',
+  // Integer-like keys are hoisted to the front by JS object enumeration.
+  '0', '2', '10', '01', '00', '7', '4294967294', '4294967295', '1.2', '__proto__']
 const SEPS = ['=', ' = ', '  =', '=\t', ':', ': ', ':\t', ':  ', '\n=', '=\n', ' :', '==']
 const VALUES = [
   '', 'v', 'value with spaces', '  padded  ', '#c', 'a#b', 'a #b',
@@ -81,20 +83,23 @@ function encodeBatch (inputs) {
   return Buffer.concat(parts)
 }
 
+// Returns an ARRAY of [key, value] in the order the Rust side emitted them.
+// Rebuilding a JS object here would re-hoist integer-like keys and hide any
+// ordering divergence -- the exact blind spot that let one through before.
 function decodeBatch (buf, count) {
   const results = []
   let off = 0
   for (let i = 0; i < count; i++) {
     const pairs = buf.readUInt32LE(off); off += 4
-    const map = {}
+    const entries = []
     for (let p = 0; p < pairs; p++) {
       const kl = buf.readUInt32LE(off); off += 4
       const key = buf.subarray(off, off + kl).toString('utf8'); off += kl
       const vl = buf.readUInt32LE(off); off += 4
       const val = buf.subarray(off, off + vl).toString('utf8'); off += vl
-      map[key] = val
+      entries.push([key, val])
     }
-    results.push(map)
+    results.push(entries)
   }
   return results
 }
@@ -114,14 +119,10 @@ for (let done = 0; done < ITERATIONS; done += BATCH) {
 
   inputs.forEach((input, i) => {
     checked++
-    const expected = dotenv.parse(input)
+    const expected = Object.entries(dotenv.parse(input))
     const actual = got[i]
-    const keys = new Set([...Object.keys(expected), ...Object.keys(actual)])
-    for (const k of keys) {
-      if (expected[k] !== actual[k]) {
-        failures.push({ input, expected, actual })
-        return
-      }
+    if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+      failures.push({ input, expected, actual })
     }
   })
 }

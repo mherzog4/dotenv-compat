@@ -30,9 +30,11 @@ pub fn parse(src: &[u8]) -> EnvMap {
     } else {
         text
     };
-    // ponytail: a Vec<char> costs one pass and 4 bytes per character. It keeps the
-    // index arithmetic below a direct transcription of the regex. Switch to byte
-    // offsets over the &str if parsing ever shows up in a profile.
+    // ponytail: a Vec<char> costs one pass and 4 bytes per character, so peak
+    // memory is a multiple of the input (~6x ASCII, ~17x for mostly-invalid UTF-8,
+    // where each bad byte becomes a 4-byte replacement char). It keeps the index
+    // arithmetic below a direct transcription of the regex. Switch to byte offsets
+    // over the &str if that ever matters.
     let chars: Vec<char> = normalized.chars().collect();
 
     let mut out = EnvMap::new();

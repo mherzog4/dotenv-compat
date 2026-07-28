@@ -908,4 +908,58 @@ pub const VECTORS: &[Vector] = &[
         input: "A=v\u{0}",
         expected: &[("A", "v\u{0}")],
     },
+    // order: array-index keys enumerate first, ascending
+    Vector {
+        name: "order_numeric_first",
+        category: "order",
+        input: "ZED=1\u{a}2=two\u{a}AAA=3\u{a}10=ten\u{a}0=zero",
+        expected: &[
+            ("0", "zero"),
+            ("2", "two"),
+            ("10", "ten"),
+            ("ZED", "1"),
+            ("AAA", "3"),
+        ],
+    },
+    // order: only canonical decimals below 2^32-1 are indices
+    Vector {
+        name: "order_numeric_noncanonical",
+        category: "order",
+        input: "B=1\u{a}01=x\u{a}4294967295=y\u{a}7=z\u{a}00=w",
+        expected: &[
+            ("7", "z"),
+            ("B", "1"),
+            ("01", "x"),
+            ("4294967295", "y"),
+            ("00", "w"),
+        ],
+    },
+    // order: all-numeric keys sort numerically not lexically
+    Vector {
+        name: "order_all_numeric",
+        category: "order",
+        input: "30=a\u{a}4=b\u{a}100=c\u{a}0=d",
+        expected: &[("0", "d"), ("4", "b"), ("30", "a"), ("100", "c")],
+    },
+    // order: repeated numeric key keeps its slot
+    Vector {
+        name: "order_numeric_dup",
+        category: "order",
+        input: "5=a\u{a}X=b\u{a}5=c",
+        expected: &[("5", "c"), ("X", "b")],
+    },
+    // order: 2^32-2 is the largest array index
+    Vector {
+        name: "order_big_index",
+        category: "order",
+        input: "4294967294=max\u{a}A=1",
+        expected: &[("4294967294", "max"), ("A", "1")],
+    },
+    // order: a dotted numeric key is not an array index
+    Vector {
+        name: "order_dotted_numeric",
+        category: "order",
+        input: "1.2=a\u{a}B=b",
+        expected: &[("1.2", "a"), ("B", "b")],
+    },
 ];

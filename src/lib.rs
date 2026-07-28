@@ -6,8 +6,8 @@
 //! `scripts/`).
 //!
 //! ```no_run
-//! // Call before spawning threads -- see the safety note on `config`.
-//! let result = dotenv_compat::config();
+//! // SAFETY: call before spawning threads -- see the safety note on `config`.
+//! let result = unsafe { dotenv_compat::config() };
 //! println!("loaded {} keys", result.parsed.len());
 //! ```
 //!
