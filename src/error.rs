@@ -46,13 +46,7 @@ impl Error {
     /// The JavaScript `err.code`, for the errors that carry one.
     pub fn code(&self) -> Option<&'static str> {
         match self {
-            Error::Io { source, .. } => match source.kind() {
-                ErrorKind::NotFound => Some("ENOENT"),
-                ErrorKind::PermissionDenied => Some("EACCES"),
-                ErrorKind::IsADirectory => Some("EISDIR"),
-                ErrorKind::NotADirectory => Some("ENOTDIR"),
-                _ => None,
-            },
+            Error::Io { source, .. } => node_code(source),
             Error::InvalidDotenvKey(_) => Some("INVALID_DOTENV_KEY"),
             Error::DecryptionFailed => Some("DECRYPTION_FAILED"),
             Error::NotFoundDotenvEnvironment(_) => Some("NOT_FOUND_DOTENV_ENVIRONMENT"),
@@ -75,28 +69,49 @@ impl Error {
 ///
 /// The reference puts Node's own `Error` on the result, and callers are
 /// documented to match on `err.code === 'ENOENT'`, so the text is reproduced.
-/// Use [`Error::kind`] rather than parsing it.
+/// Use [`Error::code`] rather than parsing it.
+///
+/// The message strings are libuv's canonical ones rather than the platform's,
+/// which is what makes them identical on every OS. Deriving them from Rust's
+/// `Display` looked right on Unix but produced "The filename, directory name, or
+/// volume label syntax is incorrect." on Windows, where Node still says ENOENT.
 pub(crate) fn node_message(path: &std::path::Path, source: &std::io::Error) -> String {
-    let code = match source.kind() {
-        ErrorKind::NotFound => "ENOENT",
-        ErrorKind::PermissionDenied => "EACCES",
-        ErrorKind::IsADirectory => "EISDIR",
-        ErrorKind::NotADirectory => "ENOTDIR",
-        ErrorKind::AlreadyExists => "EEXIST",
-        _ => return format!("{source}, open '{}'", path.display()),
-    };
+    match node_code(source) {
+        // `readFileSync` opens a directory successfully and fails on the read,
+        // so this one names the syscall instead of the path.
+        Some("EISDIR") => "EISDIR: illegal operation on a directory, read".to_string(),
+        Some(code) => format!("{code}: {}, open '{}'", node_strerror(code), path.display()),
+        None => format!("{source}, open '{}'", path.display()),
+    }
+}
 
-    // Rust renders "No such file or directory (os error 2)"; Node renders
-    // "no such file or directory".
-    let rendered = source.to_string();
-    let text = rendered.split(" (os error").next().unwrap_or(&rendered);
-    let mut chars = text.chars();
-    let lowered = match chars.next() {
-        Some(first) => first.to_lowercase().collect::<String>() + chars.as_str(),
-        None => String::new(),
-    };
+/// libuv's `uv_translate_sys_error`, for the codes `fs.readFileSync` can raise.
+pub(crate) fn node_code(source: &std::io::Error) -> Option<&'static str> {
+    // libuv folds several Windows errors that Rust keeps distinct into ENOENT.
+    // ERROR_INVALID_NAME (123) and ERROR_BAD_PATHNAME (161) are the ones a bad
+    // path string reaches.
+    if cfg!(windows) && matches!(source.raw_os_error(), Some(123) | Some(161)) {
+        return Some("ENOENT");
+    }
 
-    format!("{code}: {lowered}, open '{}'", path.display())
+    match source.kind() {
+        ErrorKind::NotFound => Some("ENOENT"),
+        ErrorKind::PermissionDenied => Some("EACCES"),
+        ErrorKind::IsADirectory => Some("EISDIR"),
+        ErrorKind::NotADirectory => Some("ENOTDIR"),
+        ErrorKind::AlreadyExists => Some("EEXIST"),
+        _ => None,
+    }
+}
+
+fn node_strerror(code: &str) -> &'static str {
+    match code {
+        "ENOENT" => "no such file or directory",
+        "EACCES" => "permission denied",
+        "ENOTDIR" => "not a directory",
+        "EEXIST" => "file already exists",
+        _ => "unknown error",
+    }
 }
 
 impl fmt::Display for Error {
