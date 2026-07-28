@@ -1,17 +1,17 @@
 [package]
-name = "dotenv-rs"
+name = "dotenv-compat"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "A faithful Rust port of the JavaScript dotenv parser: loads environment variables from .env files"
+description = "Bug-for-bug compatible Rust port of the JavaScript dotenv parser"
 license = "MIT"
 readme = "readme.md"
-keywords = ["dotenv", "env", "environment", "config"]
+keywords = ["dotenv", "env", "environment", "config", "dotfiles"]
 categories = ["config"]
 exclude = ["scripts/node_modules", "scripts/fuzz-failures.json", "port.md"]
 
 [lib]
-name = "dotenv_rs"
+name = "dotenv_compat"
 path = "src/lib.rs"
 
 [dependencies]

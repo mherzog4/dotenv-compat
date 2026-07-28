@@ -6,14 +6,14 @@
 //!
 //! ```no_run
 //! // Call before spawning threads -- see the safety note on `config`.
-//! let result = dotenv_rs::config();
+//! let result = dotenv_compat::config();
 //! println!("loaded {} keys", result.parsed.len());
 //! ```
 //!
 //! To parse without touching the environment:
 //!
 //! ```
-//! let parsed = dotenv_rs::parse(b"HOST=localhost\nPORT=8080");
+//! let parsed = dotenv_compat::parse(b"HOST=localhost\nPORT=8080");
 //! assert_eq!(parsed["PORT"], "8080");
 //! ```
 

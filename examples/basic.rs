@@ -2,11 +2,11 @@
 //!
 //!   cargo run --example basic
 
-use dotenv_rs::Options;
+use dotenv_compat::Options;
 
 fn main() {
     // Written to a temp file so the example runs anywhere.
-    let path = std::env::temp_dir().join("dotenv-rs-example.env");
+    let path = std::env::temp_dir().join("dotenv-compat-example.env");
     std::fs::write(
         &path,
         r#"
@@ -20,7 +20,7 @@ LITERAL='no \n expansion in single quotes'
     )
     .unwrap();
 
-    let result = dotenv_rs::config_with(&Options {
+    let result = dotenv_compat::config_with(&Options {
         path: vec![path.clone()],
         quiet: true,
         ..Options::default()
@@ -40,7 +40,7 @@ LITERAL='no \n expansion in single quotes'
     println!("LITERAL      = {:?}", std::env::var("LITERAL").unwrap());
 
     // Parsing without touching the environment.
-    let parsed = dotenv_rs::parse(b"A=1\nB=2");
+    let parsed = dotenv_compat::parse(b"A=1\nB=2");
     println!("parse only   = {} keys", parsed.len());
 
     std::fs::remove_file(&path).ok();

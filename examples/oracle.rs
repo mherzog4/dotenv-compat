@@ -21,7 +21,7 @@ fn main() {
         let payload = &input[cursor..cursor + len];
         cursor += len;
 
-        let parsed = dotenv_rs::parse(payload);
+        let parsed = dotenv_compat::parse(payload);
         out.extend_from_slice(&(parsed.len() as u32).to_le_bytes());
         for (key, value) in &parsed {
             write_field(&mut out, key.as_bytes());

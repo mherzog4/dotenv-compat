@@ -1,4 +1,4 @@
-# dotenv-rs
+# dotenv-compat
 
 A Rust port of the JavaScript [dotenv](https://github.com/motdotla/dotenv) library.
 
@@ -14,7 +14,7 @@ No dependencies.
 ```rust
 fn main() {
     // Load ./.env into the process environment. Call before spawning threads.
-    dotenv_rs::config();
+    dotenv_compat::config();
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     println!("listening on {port}");
@@ -24,9 +24,9 @@ fn main() {
 Loading specific files, or letting `.env` values win over what is already set:
 
 ```rust
-use dotenv_rs::Options;
+use dotenv_compat::Options;
 
-let result = dotenv_rs::config_with(&Options {
+let result = dotenv_compat::config_with(&Options {
     path: vec![".env".into(), "~/.env.local".into()],
     overwrite: true,
     quiet: true,
@@ -41,7 +41,7 @@ if let Some(error) = &result.error {
 Parsing without touching the environment:
 
 ```rust
-let parsed = dotenv_rs::parse(b"HOST=localhost\nPORT=8080");
+let parsed = dotenv_compat::parse(b"HOST=localhost\nPORT=8080");
 assert_eq!(parsed["PORT"], "8080");
 ```
 
@@ -49,7 +49,7 @@ Applying a parsed map to something other than the process environment:
 
 ```rust
 use std::collections::HashMap;
-use dotenv_rs::{Options, parse, populate};
+use dotenv_compat::{Options, parse, populate};
 
 let mut target: HashMap<String, String> = HashMap::new();
 target.insert("PORT".into(), "9999".into());
@@ -143,7 +143,7 @@ hand-written, so the suite records what dotenv does rather than what we assume.
 `cargo run --release --example bench` versus `node scripts/bench.mjs`, on the same
 input, Apple Silicon, node v23.10.0:
 
-| input | dotenv-rs | dotenv@17.4.2 |
+| input | dotenv-compat | dotenv@17.4.2 |
 | --- | --- | --- |
 | 670 B | 167 MB/s | 117 MB/s |
 | 14 KB | 186 MB/s | 114 MB/s |

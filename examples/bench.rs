@@ -18,7 +18,7 @@ fn main() {
         let start = Instant::now();
         let mut keys = 0usize;
         for _ in 0..reps {
-            keys += std::hint::black_box(dotenv_rs::parse(input.as_bytes())).len();
+            keys += std::hint::black_box(dotenv_compat::parse(input.as_bytes())).len();
         }
         let elapsed = start.elapsed();
 

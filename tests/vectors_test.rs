@@ -15,7 +15,7 @@ fn matches_reference_dotenv() {
 
     for v in VECTORS {
         let expected: HashMap<&str, &str> = v.expected.iter().copied().collect();
-        let got = dotenv_rs::parse(v.input.as_bytes());
+        let got = dotenv_compat::parse(v.input.as_bytes());
         let got: HashMap<&str, &str> = got
             .iter()
             .map(|(k, val)| (k.as_str(), val.as_str()))
