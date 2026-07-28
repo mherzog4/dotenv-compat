@@ -7,7 +7,7 @@ ships on npm**, quirks included. (Note the `master` branch on GitHub is a later
 refactor with the vault code removed and different logging — that is *not* what
 this crate targets.)
 
-Checked against the reference by 127 recorded test vectors and two differential
+Checked against the reference by 141 recorded test vectors and two differential
 fuzzers, plus a split-context adversarial review that compared every function
 against the JavaScript source line by line.
 
@@ -193,7 +193,7 @@ at a 100 MB blob.
 ## Development
 
 ```sh
-cargo test                      # 127 vectors + config/populate tests
+cargo test                      # 141 vectors + config/populate tests
 cargo clippy --all-targets      # clean
 cargo run --release --example bench
 
