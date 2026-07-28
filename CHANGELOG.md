@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.1 — unreleased
+
+### Fixed
+
+- **UNC and device paths on Windows.** `normalize` only understood drive roots,
+  so `\\server\share` collapsed to `\server` -- the leading pair of separators
+  was lost and `..` could climb out of the share. 8 of 13 cases diverged from
+  node's `path.win32`.
+
+  Reachable in practice: a roaming Windows profile on a network share makes
+  `USERPROFILE` a UNC path, and every `~`-relative `.env` would then resolve to a
+  corrupted location.
+
+  `split_root` now recognises all four Windows root kinds -- drive, UNC share,
+  device namespace (`\\?\`, `\\.\`), and plain rooted. Both the UNC and device
+  forms need two segments after the leading separators; `\\server` and `\\?\`
+  degrade to ordinary rooted paths, as they do in Node. In a device path the
+  drive letter is an ordinary poppable segment, so `\\?\C:\a\..\..` is `\\?\`.
+- `relative` between two different roots now returns the destination, as Node
+  does, instead of emitting a meaningless `..` chain.
+
+27 cases recorded from node v23 `path.win32` cover the fix.
+
 ## 0.3.0 — unreleased
 
 ### Added
