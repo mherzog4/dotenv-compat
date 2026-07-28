@@ -1,0 +1,21 @@
+tests/support/vectors_generated.rs
+  s_83bf9debfc8b2e::t_a38713ae8fbe56 965-1012
+tests/vectors.json
+  s_83bf9debfc8b2e::t_a38713ae8fbe56 799-834
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f81e89d95282dedcb51790d3e379d6ced2fb77a0",
+  "prompts": {},
+  "sessions": {
+    "s_83bf9debfc8b2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f72ca6d-2a09-4e47-8e25-954a7a0a661d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mherzog4 <matthewherzog4@gmail.com>"
+    }
+  }
+}
