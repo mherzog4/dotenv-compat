@@ -14,6 +14,11 @@ fn is_sep(ch: char) -> bool {
     ch == '/' || (WINDOWS && ch == '\\')
 }
 
+fn has_drive(path: &str) -> bool {
+    let b = path.as_bytes();
+    b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
+}
+
 fn sep() -> char {
     if WINDOWS { '\\' } else { '/' }
 }
@@ -35,19 +40,19 @@ pub fn normalize(path: &str) -> String {
         return ".".into();
     }
 
-    let absolute = path.starts_with(is_sep);
+    let (root, rest, absolute) = split_root(path);
     // Node preserves a trailing separator, but not for a bare root.
     let trailing = path.len() > 1 && path.ends_with(is_sep);
 
     let mut parts: Vec<&str> = Vec::new();
-    for segment in path.split(is_sep) {
+    for segment in rest.split(is_sep) {
         match segment {
             "" | "." => {}
             ".." => match parts.last() {
                 Some(&last) if last != ".." => {
                     parts.pop();
                 }
-                // A `..` that escapes the root is dropped; a relative path keeps it.
+                // `..` cannot escape a root; a relative path keeps it.
                 _ if absolute => {}
                 _ => parts.push(".."),
             },
@@ -55,23 +60,41 @@ pub fn normalize(path: &str) -> String {
         }
     }
 
-    let mut out = parts.join(&sep().to_string());
-    if out.is_empty() {
-        return if absolute {
-            sep().to_string()
-        } else if trailing {
-            "./".into()
-        } else {
-            ".".into()
-        };
-    }
+    let body = parts.join(&sep().to_string());
+    let mut out = String::from(root);
     if absolute {
-        out.insert(0, sep());
+        out.push(sep());
     }
+    if body.is_empty() {
+        // `C:\..\..` is `C:\`; `/..` is `/`; `a/..` is `.`.
+        if out.is_empty() {
+            return if trailing { "./".into() } else { ".".into() };
+        }
+        return out;
+    }
+    out.push_str(&body);
     if trailing {
         out.push(sep());
     }
     out
+}
+
+/// Split a path into its root, the remainder, and whether the root is absolute.
+///
+/// On Windows a drive letter is a root that `..` cannot climb past, and `C:x` is
+/// drive-relative rather than absolute.
+fn split_root(path: &str) -> (&str, &str, bool) {
+    if WINDOWS && has_drive(path) {
+        let after = &path[2..];
+        return match after.starts_with(is_sep) {
+            true => (&path[..2], &after[1..], true),
+            false => (&path[..2], after, false),
+        };
+    }
+    match path.starts_with(is_sep) {
+        true => ("", &path[1..], true),
+        false => ("", path, false),
+    }
 }
 
 /// `path.resolve(base, path)` -- make `path` absolute against `base` if it is not
@@ -82,11 +105,6 @@ pub fn resolve(base: &str, path: &str) -> String {
     } else {
         join(base, path)
     }
-}
-
-fn has_drive(path: &str) -> bool {
-    let b = path.as_bytes();
-    b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':'
 }
 
 /// `path.relative(from, to)` -- the lexical route from one path to the other,
@@ -128,8 +146,7 @@ fn same_segment(a: &str, b: &str) -> bool {
 mod tests {
     use super::*;
 
-    // Expectations recorded from node v23 `path.posix`. Only meaningful on POSIX,
-    // where our separator handling matches.
+    // Expectations recorded from node v23 `path.posix`.
     #[test]
     #[cfg(unix)]
     fn matches_node_posix() {
@@ -155,5 +172,34 @@ mod tests {
         assert_eq!(relative("/tmp/work", "../a.env"), "../a.env");
         assert_eq!(resolve("/tmp/work", "a.env"), "/tmp/work/a.env");
         assert_eq!(resolve("/tmp/work", "/abs"), "/abs");
+    }
+
+    // Expectations recorded from node v23 `path.win32`.
+    #[test]
+    #[cfg(windows)]
+    fn matches_node_win32() {
+        assert_eq!(join(r"C:\home\u", ""), r"C:\home\u");
+        assert_eq!(join(r"C:\home\u", "/.env"), r"C:\home\u\.env");
+        // Unlike POSIX, a backslash IS a separator here.
+        assert_eq!(join(r"C:\home\u", r"\a.env"), r"C:\home\u\a.env");
+        assert_eq!(join(r"C:\home\u", "/../target.env"), r"C:\home\target.env");
+        assert_eq!(join(r"C:\home\u", "//a"), r"C:\home\u\a");
+        assert_eq!(join(r"C:\home\u", "./a"), r"C:\home\u\a");
+
+        assert_eq!(normalize(r"C:\a\b\..\c"), r"C:\a\c");
+        // A drive letter is a root: `..` cannot climb past it.
+        assert_eq!(normalize(r"C:\..\.."), r"C:\");
+        assert_eq!(normalize(r"C:\a\..\..\b"), r"C:\b");
+        assert_eq!(normalize(r"C:\a\b\"), "C:\\a\\b\\");
+        assert_eq!(normalize(r"a\..\.."), "..");
+
+        assert_eq!(relative(r"C:\a\b", r"C:\a\b\c"), "c");
+        assert_eq!(relative(r"C:\a\b\c", r"C:\a\d"), r"..\..\d");
+        assert_eq!(
+            relative(r"C:\tmp\work", r"C:\outside.env"),
+            r"..\..\outside.env"
+        );
+        // Windows path comparison is case-insensitive.
+        assert_eq!(relative(r"C:\A\b", r"C:\a\b\c"), "c");
     }
 }
