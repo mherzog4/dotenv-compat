@@ -128,11 +128,18 @@ cargo test                      # 107 vectors + config/populate tests
 cargo clippy --all-targets      # clean
 cargo run --release --example bench
 
-cd scripts && npm install
+cd scripts && npm ci
 npm run gen                     # re-record expectations from dotenv@17.4.2
-node fuzz.mjs 100000 7          # differential fuzz against the reference
+
+cargo build --release --example oracle
+node fuzz.mjs 100000 7          # differential fuzz of parse()
+node fuzz-config.mjs 5000 7     # differential fuzz of config(): cascade,
+                                #   override, preset keys, missing files
 node bench.mjs                  # same benchmark, reference implementation
 ```
+
+CI runs the full suite plus both differential fuzzers on Linux, macOS and
+Windows, and fails if regenerating the recorded vectors produces any diff.
 
 `tests/support/vectors_generated.rs` is generated from `tests/vectors.json` by
 running each input through the real dotenv package. Expectations are never

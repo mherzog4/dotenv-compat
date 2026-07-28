@@ -12,6 +12,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
+import { oracleBin } from './harness.mjs'
+
 const here = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 const dotenv = require('dotenv')
@@ -93,7 +95,7 @@ function decodeBatch (buf, count) {
   return results
 }
 
-const bin = join(here, '..', 'target', 'release', 'examples', 'oracle')
+const bin = oracleBin()
 const failures = []
 let checked = 0
 
