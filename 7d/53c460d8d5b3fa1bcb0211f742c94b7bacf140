@@ -1,0 +1,21 @@
+readme.md
+  s_83bf9debfc8b2e::t_d3c166cfcd705a 131
+tests/config_test.rs
+  s_83bf9debfc8b2e::t_d3c166cfcd705a 43-44,274-305
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7d53c460d8d5b3fa1bcb0211f742c94b7bacf140",
+  "prompts": {},
+  "sessions": {
+    "s_83bf9debfc8b2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f72ca6d-2a09-4e47-8e25-954a7a0a661d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mherzog4 <matthewherzog4@gmail.com>"
+    }
+  }
+}
