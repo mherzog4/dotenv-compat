@@ -15,20 +15,14 @@ pub const VECTORS: &[Vector] = &[
         name: "basic_simple",
         category: "basic",
         input: "BASIC=basic",
-        expected: &[
-        ("BASIC", "basic"),
-        ],
+        expected: &[("BASIC", "basic")],
     },
     // basic: several pairs
     Vector {
         name: "basic_multiple",
         category: "basic",
         input: "A=1\u{a}B=2\u{a}C=3",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ("C", "3"),
-        ],
+        expected: &[("A", "1"), ("B", "2"), ("C", "3")],
     },
     // basic: empty input yields empty map
     Vector {
@@ -42,82 +36,63 @@ pub const VECTORS: &[Vector] = &[
         name: "basic_empty_value",
         category: "basic",
         input: "EMPTY=",
-        expected: &[
-        ("EMPTY", ""),
-        ],
+        expected: &[("EMPTY", "")],
     },
     // basic: value of only spaces trims to empty
     Vector {
         name: "basic_empty_value_ws",
         category: "basic",
         input: "EMPTY=   ",
-        expected: &[
-        ("EMPTY", ""),
-        ],
+        expected: &[("EMPTY", "")],
     },
     // basic: whitespace around separator
     Vector {
         name: "basic_spaces_around_equals",
         category: "basic",
         input: "SPACED   =    value",
-        expected: &[
-        ("SPACED", "value"),
-        ],
+        expected: &[("SPACED", "value")],
     },
     // basic: file ends with newline
     Vector {
         name: "basic_trailing_newline",
         category: "basic",
         input: "A=1\u{a}",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // basic: blank lines between entries
     Vector {
         name: "basic_blank_lines",
         category: "basic",
         input: "A=1\u{a}\u{a}\u{a}\u{a}B=2",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ],
+        expected: &[("A", "1"), ("B", "2")],
     },
     // basic: leading blank lines
     Vector {
         name: "basic_leading_blank_lines",
         category: "basic",
         input: "\u{a}\u{a}\u{a}A=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // basic: leading whitespace before key
     Vector {
         name: "basic_indented",
         category: "basic",
         input: "    INDENTED=yes",
-        expected: &[
-        ("INDENTED", "yes"),
-        ],
+        expected: &[("INDENTED", "yes")],
     },
     // basic: last assignment wins
     Vector {
         name: "basic_duplicate_key",
         category: "basic",
         input: "DUP=first\u{a}DUP=second",
-        expected: &[
-        ("DUP", "second"),
-        ],
+        expected: &[("DUP", "second")],
     },
     // basic: non-ascii value
     Vector {
         name: "basic_unicode_value",
         category: "basic",
         input: "UNI=h\u{e9}llo \u{2192} \u{4e16}\u{754c} \u{1f389}",
-        expected: &[
-        ("UNI", "h\u{e9}llo \u{2192} \u{4e16}\u{754c} \u{1f389}"),
-        ],
+        expected: &[("UNI", "h\u{e9}llo \u{2192} \u{4e16}\u{754c} \u{1f389}")],
     },
     // basic: non-ascii key is not \w
     Vector {
@@ -145,18 +120,14 @@ pub const VECTORS: &[Vector] = &[
         name: "basic_value_with_equals",
         category: "basic",
         input: "URL=postgres://u:p@h/db?a=b&c=d",
-        expected: &[
-        ("URL", "postgres://u:p@h/db?a=b&c=d"),
-        ],
+        expected: &[("URL", "postgres://u:p@h/db?a=b&c=d")],
     },
     // basic: colon plus space separator
     Vector {
         name: "basic_colon_separator",
         category: "basic",
         input: "COLON: value",
-        expected: &[
-        ("COLON", "value"),
-        ],
+        expected: &[("COLON", "value")],
     },
     // basic: colon needs following whitespace
     Vector {
@@ -170,298 +141,231 @@ pub const VECTORS: &[Vector] = &[
         name: "basic_yaml_ish",
         category: "basic",
         input: "A: 1\u{a}B: 2",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ],
+        expected: &[("A", "1"), ("B", "2")],
     },
     // quotes: single quotes stripped
     Vector {
         name: "quotes_single",
         category: "quotes",
         input: "S='single quoted'",
-        expected: &[
-        ("S", "single quoted"),
-        ],
+        expected: &[("S", "single quoted")],
     },
     // quotes: double quotes stripped
     Vector {
         name: "quotes_double",
         category: "quotes",
         input: "D=\"double quoted\"",
-        expected: &[
-        ("D", "double quoted"),
-        ],
+        expected: &[("D", "double quoted")],
     },
     // quotes: backticks stripped
     Vector {
         name: "quotes_backtick",
         category: "quotes",
         input: "B=`backtick quoted`",
-        expected: &[
-        ("B", "backtick quoted"),
-        ],
+        expected: &[("B", "backtick quoted")],
     },
     // quotes: quotes preserve interior whitespace
     Vector {
         name: "quotes_preserve_inner_spaces",
         category: "quotes",
         input: "P=\"   padded   \"",
-        expected: &[
-        ("P", "   padded   "),
-        ],
+        expected: &[("P", "   padded   ")],
     },
     // quotes: whitespace outside quotes trimmed
     Vector {
         name: "quotes_padded_outside",
         category: "quotes",
         input: "P=   \"value\"   ",
-        expected: &[
-        ("P", "value"),
-        ],
+        expected: &[("P", "value")],
     },
     // quotes: apostrophe inside double quotes
     Vector {
         name: "quotes_single_inside_double",
         category: "quotes",
         input: "M=\"it's fine\"",
-        expected: &[
-        ("M", "it's fine"),
-        ],
+        expected: &[("M", "it's fine")],
     },
     // quotes: double quotes inside single quotes
     Vector {
         name: "quotes_double_inside_single",
         category: "quotes",
         input: "M='say \"hi\"'",
-        expected: &[
-        ("M", "say \"hi\""),
-        ],
+        expected: &[("M", "say \"hi\"")],
     },
     // quotes: backticks inside double quotes
     Vector {
         name: "quotes_backtick_inside_double",
         category: "quotes",
         input: "M=\"use `cmd` here\"",
-        expected: &[
-        ("M", "use `cmd` here"),
-        ],
+        expected: &[("M", "use `cmd` here")],
     },
     // quotes: opening quote with no close
     Vector {
         name: "quotes_unbalanced_open_double",
         category: "quotes",
         input: "U=\"unterminated",
-        expected: &[
-        ("U", "\"unterminated"),
-        ],
+        expected: &[("U", "\"unterminated")],
     },
     // quotes: opening single quote with no close
     Vector {
         name: "quotes_unbalanced_open_single",
         category: "quotes",
         input: "U='unterminated",
-        expected: &[
-        ("U", "'unterminated"),
-        ],
+        expected: &[("U", "'unterminated")],
     },
     // quotes: quote only at end
     Vector {
         name: "quotes_trailing_only",
         category: "quotes",
         input: "U=value\"",
-        expected: &[
-        ("U", "value\""),
-        ],
+        expected: &[("U", "value\"")],
     },
     // quotes: empty double quoted
     Vector {
         name: "quotes_empty_double",
         category: "quotes",
         input: "E=\"\"",
-        expected: &[
-        ("E", ""),
-        ],
+        expected: &[("E", "")],
     },
     // quotes: empty single quoted
     Vector {
         name: "quotes_empty_single",
         category: "quotes",
         input: "E=''",
-        expected: &[
-        ("E", ""),
-        ],
+        expected: &[("E", "")],
     },
     // quotes: single lone quote char as value
     Vector {
         name: "quotes_lone_double",
         category: "quotes",
         input: "E=\"",
-        expected: &[
-        ("E", "\""),
-        ],
+        expected: &[("E", "\"")],
     },
     // quotes: junk after closing quote
     Vector {
         name: "quotes_text_after_close",
         category: "quotes",
         input: "T=\"quoted\" trailing",
-        expected: &[
-        ("T", "\"quoted\" trailing"),
-        ],
+        expected: &[("T", "\"quoted\" trailing")],
     },
     // quotes: two quoted runs on one line
     Vector {
         name: "quotes_two_quoted_on_line",
         category: "quotes",
         input: "T=\"a\" \"b\"",
-        expected: &[
-        ("T", "a\" \"b"),
-        ],
+        expected: &[("T", "a\" \"b")],
     },
     // quotes: opening double, closing single
     Vector {
         name: "quotes_mixed_open_close",
         category: "quotes",
         input: "M=\"mismatched'",
-        expected: &[
-        ("M", "\"mismatched'"),
-        ],
+        expected: &[("M", "\"mismatched'")],
     },
     // quotes: nested same quote char
     Vector {
         name: "quotes_nested_same",
         category: "quotes",
         input: "N=\"outer \"inner\" outer\"",
-        expected: &[
-        ("N", "outer \"inner\" outer"),
-        ],
+        expected: &[("N", "outer \"inner\" outer")],
     },
     // escapes: backslash-n expands in double quotes
     Vector {
         name: "escape_n_in_double",
         category: "escapes",
         input: "N=\"line1\\nline2\"",
-        expected: &[
-        ("N", "line1\u{a}line2"),
-        ],
+        expected: &[("N", "line1\u{a}line2")],
     },
     // escapes: backslash-r expands in double quotes
     Vector {
         name: "escape_r_in_double",
         category: "escapes",
         input: "R=\"a\\rb\"",
-        expected: &[
-        ("R", "a\u{d}b"),
-        ],
+        expected: &[("R", "a\u{d}b")],
     },
     // escapes: no expansion in single quotes
     Vector {
         name: "escape_n_in_single",
         category: "escapes",
         input: "N='line1\\nline2'",
-        expected: &[
-        ("N", "line1\\nline2"),
-        ],
+        expected: &[("N", "line1\\nline2")],
     },
     // escapes: no expansion in backticks
     Vector {
         name: "escape_n_in_backtick",
         category: "escapes",
         input: "N=`line1\\nline2`",
-        expected: &[
-        ("N", "line1\\nline2"),
-        ],
+        expected: &[("N", "line1\\nline2")],
     },
     // escapes: no expansion when unquoted
     Vector {
         name: "escape_n_unquoted",
         category: "escapes",
         input: "N=line1\\nline2",
-        expected: &[
-        ("N", "line1\\nline2"),
-        ],
+        expected: &[("N", "line1\\nline2")],
     },
     // escapes: escaped backslash before n
     Vector {
         name: "escape_double_backslash_n",
         category: "escapes",
         input: "N=\"a\\\\nb\"",
-        expected: &[
-        ("N", "a\\\u{a}b"),
-        ],
+        expected: &[("N", "a\\\u{a}b")],
     },
     // escapes: escaped double quotes inside double quotes
     Vector {
         name: "escape_escaped_quote_double",
         category: "escapes",
         input: "Q=\"say \\\"hi\\\"\"",
-        expected: &[
-        ("Q", "say \\\"hi\\\""),
-        ],
+        expected: &[("Q", "say \\\"hi\\\"")],
     },
     // escapes: escaped single quote inside single quotes
     Vector {
         name: "escape_escaped_quote_single",
         category: "escapes",
         input: "Q='it\\'s'",
-        expected: &[
-        ("Q", "it\\'s"),
-        ],
+        expected: &[("Q", "it\\'s")],
     },
     // escapes: escaped backtick inside backticks
     Vector {
         name: "escape_escaped_backtick",
         category: "escapes",
         input: "Q=`a\\`b`",
-        expected: &[
-        ("Q", "a\\`b"),
-        ],
+        expected: &[("Q", "a\\`b")],
     },
     // escapes: value ending in escaped backslash
     Vector {
         name: "escape_trailing_backslash",
         category: "escapes",
         input: "B=\"ends with backslash\\\\\"",
-        expected: &[
-        ("B", "ends with backslash\\\\"),
-        ],
+        expected: &[("B", "ends with backslash\\\\")],
     },
     // escapes: backslash-t is not expanded
     Vector {
         name: "escape_t_not_expanded",
         category: "escapes",
         input: "T=\"tab\\there\"",
-        expected: &[
-        ("T", "tab\\there"),
-        ],
+        expected: &[("T", "tab\\there")],
     },
     // escapes: unicode escapes are not expanded
     Vector {
         name: "escape_unicode_seq_not_expanded",
         category: "escapes",
         input: "U=\"\\u0041\"",
-        expected: &[
-        ("U", "\\u0041"),
-        ],
+        expected: &[("U", "\\u0041")],
     },
     // escapes: unterminated single quote containing escaped quote
     Vector {
         name: "escape_unterminated_with_escaped_quote",
         category: "escapes",
         input: "Q='a\\'b",
-        expected: &[
-        ("Q", "'a\\'b"),
-        ],
+        expected: &[("Q", "'a\\'b")],
     },
     // escapes: expansion still applies to unterminated double quote
     Vector {
         name: "escape_n_unterminated_double",
         category: "escapes",
         input: "N=\"a\\nb",
-        expected: &[
-        ("N", "\"a\u{a}b"),
-        ],
+        expected: &[("N", "\"a\u{a}b")],
     },
     // comments: whole-line comment ignored
     Vector {
@@ -482,172 +386,133 @@ pub const VECTORS: &[Vector] = &[
         name: "comment_indented",
         category: "comments",
         input: "   # indented comment\u{a}A=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // comments: inline comment after unquoted value
     Vector {
         name: "comment_inline_spaced",
         category: "comments",
         input: "A=value # comment",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // comments: hash with no preceding space still ends value
     Vector {
         name: "comment_inline_no_space",
         category: "comments",
         input: "A=value#comment",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // comments: hash inside double quotes is literal
     Vector {
         name: "comment_hash_in_double_quotes",
         category: "comments",
         input: "A=\"value # not comment\"",
-        expected: &[
-        ("A", "value # not comment"),
-        ],
+        expected: &[("A", "value # not comment")],
     },
     // comments: hash inside single quotes is literal
     Vector {
         name: "comment_hash_in_single_quotes",
         category: "comments",
         input: "A='value # not comment'",
-        expected: &[
-        ("A", "value # not comment"),
-        ],
+        expected: &[("A", "value # not comment")],
     },
     // comments: comment after closing quote
     Vector {
         name: "comment_after_quoted",
         category: "comments",
         input: "A=\"value\" # comment",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // comments: value is only a hash
     Vector {
         name: "comment_hash_only_value",
         category: "comments",
         input: "A=#",
-        expected: &[
-        ("A", ""),
-        ],
+        expected: &[("A", "")],
     },
     // comments: url fragment is treated as comment
     Vector {
         name: "comment_url_fragment",
         category: "comments",
         input: "URL=http://x.test/page#frag",
-        expected: &[
-        ("URL", "http://x.test/page"),
-        ],
+        expected: &[("URL", "http://x.test/page")],
     },
     // export: export keyword stripped
     Vector {
         name: "export_basic",
         category: "export",
         input: "export EXPORTED=yes",
-        expected: &[
-        ("EXPORTED", "yes"),
-        ],
+        expected: &[("EXPORTED", "yes")],
     },
     // export: several spaces after export
     Vector {
         name: "export_multiple_spaces",
         category: "export",
         input: "export    SPACED=yes",
-        expected: &[
-        ("SPACED", "yes"),
-        ],
+        expected: &[("SPACED", "yes")],
     },
     // export: tab after export
     Vector {
         name: "export_tab",
         category: "export",
         input: "export\u{9}TABBED=yes",
-        expected: &[
-        ("TABBED", "yes"),
-        ],
+        expected: &[("TABBED", "yes")],
     },
     // export: export used as a key name
     Vector {
         name: "export_as_key",
         category: "export",
         input: "export=value",
-        expected: &[
-        ("export", "value"),
-        ],
+        expected: &[("export", "value")],
     },
     // export: export with quoted value
     Vector {
         name: "export_quoted_value",
         category: "export",
         input: "export Q=\"quoted\"",
-        expected: &[
-        ("Q", "quoted"),
-        ],
+        expected: &[("Q", "quoted")],
     },
     // export: indented export
     Vector {
         name: "export_indented",
         category: "export",
         input: "   export I=1",
-        expected: &[
-        ("I", "1"),
-        ],
+        expected: &[("I", "1")],
     },
     // export: bare export followed by a pair
     Vector {
         name: "export_alone",
         category: "export",
         input: "export\u{a}A=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // multiline: literal newlines inside double quotes
     Vector {
         name: "multiline_double",
         category: "multiline",
         input: "M=\"first\u{a}second\u{a}third\"",
-        expected: &[
-        ("M", "first\u{a}second\u{a}third"),
-        ],
+        expected: &[("M", "first\u{a}second\u{a}third")],
     },
     // multiline: literal newlines inside single quotes
     Vector {
         name: "multiline_single",
         category: "multiline",
         input: "M='first\u{a}second'",
-        expected: &[
-        ("M", "first\u{a}second"),
-        ],
+        expected: &[("M", "first\u{a}second")],
     },
     // multiline: literal newlines inside backticks
     Vector {
         name: "multiline_backtick",
         category: "multiline",
         input: "M=`first\u{a}second`",
-        expected: &[
-        ("M", "first\u{a}second"),
-        ],
+        expected: &[("M", "first\u{a}second")],
     },
     // multiline: parsing resumes after a multiline value
     Vector {
         name: "multiline_then_key",
         category: "multiline",
         input: "M=\"a\u{a}b\"\u{a}AFTER=1",
-        expected: &[
-        ("M", "a\u{a}b"),
-        ("AFTER", "1"),
-        ],
+        expected: &[("M", "a\u{a}b"), ("AFTER", "1")],
     },
     // multiline: pem-style block
     Vector {
@@ -655,8 +520,11 @@ pub const VECTORS: &[Vector] = &[
         category: "multiline",
         input: "KEY=\"-----BEGIN-----\u{a}line1\u{a}line2\u{a}-----END-----\"\u{a}NEXT=ok",
         expected: &[
-        ("KEY", "-----BEGIN-----\u{a}line1\u{a}line2\u{a}-----END-----"),
-        ("NEXT", "ok"),
+            (
+                "KEY",
+                "-----BEGIN-----\u{a}line1\u{a}line2\u{a}-----END-----",
+            ),
+            ("NEXT", "ok"),
         ],
     },
     // multiline: unterminated multiline quote
@@ -664,105 +532,77 @@ pub const VECTORS: &[Vector] = &[
         name: "multiline_unterminated",
         category: "multiline",
         input: "M=\"a\u{a}b\u{a}AFTER=1",
-        expected: &[
-        ("M", "\"a"),
-        ("AFTER", "1"),
-        ],
+        expected: &[("M", "\"a"), ("AFTER", "1")],
     },
     // multiline: hash inside multiline quoted value
     Vector {
         name: "multiline_with_hash",
         category: "multiline",
         input: "M=\"a\u{a}# not a comment\u{a}b\"",
-        expected: &[
-        ("M", "a\u{a}# not a comment\u{a}b"),
-        ],
+        expected: &[("M", "a\u{a}# not a comment\u{a}b")],
     },
     // line_endings: windows crlf
     Vector {
         name: "eol_crlf",
         category: "line_endings",
         input: "A=1\u{d}\u{a}B=2\u{d}\u{a}",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ],
+        expected: &[("A", "1"), ("B", "2")],
     },
     // line_endings: classic mac cr
     Vector {
         name: "eol_cr_only",
         category: "line_endings",
         input: "A=1\u{d}B=2\u{d}",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ],
+        expected: &[("A", "1"), ("B", "2")],
     },
     // line_endings: mixed line endings
     Vector {
         name: "eol_mixed",
         category: "line_endings",
         input: "A=1\u{d}\u{a}B=2\u{a}C=3\u{d}D=4",
-        expected: &[
-        ("A", "1"),
-        ("B", "2"),
-        ("C", "3"),
-        ("D", "4"),
-        ],
+        expected: &[("A", "1"), ("B", "2"), ("C", "3"), ("D", "4")],
     },
     // line_endings: crlf inside a quoted value is normalized
     Vector {
         name: "eol_crlf_in_quotes",
         category: "line_endings",
         input: "M=\"a\u{d}\u{a}b\"",
-        expected: &[
-        ("M", "a\u{a}b"),
-        ],
+        expected: &[("M", "a\u{a}b")],
     },
     // line_endings: trailing carriage return stripped
     Vector {
         name: "eol_trailing_cr",
         category: "line_endings",
         input: "A=value\u{d}",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // keys: leading underscore
     Vector {
         name: "key_underscore",
         category: "keys",
         input: "_LEADING=1",
-        expected: &[
-        ("_LEADING", "1"),
-        ],
+        expected: &[("_LEADING", "1")],
     },
     // keys: dots in key
     Vector {
         name: "key_dots",
         category: "keys",
         input: "a.b.c=1",
-        expected: &[
-        ("a.b.c", "1"),
-        ],
+        expected: &[("a.b.c", "1")],
     },
     // keys: hyphens in key
     Vector {
         name: "key_hyphens",
         category: "keys",
         input: "a-b-c=1",
-        expected: &[
-        ("a-b-c", "1"),
-        ],
+        expected: &[("a-b-c", "1")],
     },
     // keys: key starting with digit
     Vector {
         name: "key_digits_leading",
         category: "keys",
         input: "123=numeric",
-        expected: &[
-        ("123", "numeric"),
-        ],
+        expected: &[("123", "numeric")],
     },
     // keys: space in key is invalid
     Vector {
@@ -776,9 +616,7 @@ pub const VECTORS: &[Vector] = &[
         name: "key_lowercase",
         category: "keys",
         input: "lower=1",
-        expected: &[
-        ("lower", "1"),
-        ],
+        expected: &[("lower", "1")],
     },
     // keys: dollar is not a key char
     Vector {
@@ -799,126 +637,101 @@ pub const VECTORS: &[Vector] = &[
         name: "edge_value_only_hash_comment",
         category: "edge",
         input: "A=   # comment",
-        expected: &[
-        ("A", ""),
-        ],
+        expected: &[("A", "")],
     },
     // edge: two equals separated
     Vector {
         name: "edge_multiple_equals_spaced",
         category: "edge",
         input: "A = = b",
-        expected: &[
-        ("A", "= b"),
-        ],
+        expected: &[("A", "= b")],
     },
     // edge: key and equals on different lines
     Vector {
         name: "edge_key_newline_equals",
         category: "edge",
         input: "A\u{a}=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // edge: raw json as unquoted value
     Vector {
         name: "edge_json_value",
         category: "edge",
         input: "J={\"a\":1,\"b\":[2,3]}",
-        expected: &[
-        ("J", "{\"a\":1,\"b\":[2,3]}"),
-        ],
+        expected: &[("J", "{\"a\":1,\"b\":[2,3]}")],
     },
     // edge: json inside single quotes
     Vector {
         name: "edge_json_quoted",
         category: "edge",
         input: "J='{\"a\":1}'",
-        expected: &[
-        ("J", "{\"a\":1}"),
-        ],
+        expected: &[("J", "{\"a\":1}")],
     },
     // edge: long single-line value
     Vector {
         name: "edge_long_value",
         category: "edge",
         input: "LONG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        expected: &[
-        ("LONG", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-        ],
+        expected: &[(
+            "LONG",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )],
     },
     // edge: nul byte inside value
     Vector {
         name: "edge_nul_byte",
         category: "edge",
         input: "A=va\u{0}lue",
-        expected: &[
-        ("A", "va\u{0}lue"),
-        ],
+        expected: &[("A", "va\u{0}lue")],
     },
     // edge: utf-8 bom before first key
     Vector {
         name: "edge_bom",
         category: "edge",
         input: "\u{feff}A=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // edge: non-breaking spaces around value
     Vector {
         name: "edge_nbsp",
         category: "edge",
         input: "A=\u{a0}value\u{a0}",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // edge: tabs around value
     Vector {
         name: "edge_tabs_around",
         category: "edge",
         input: "A=\u{9}value\u{9}",
-        expected: &[
-        ("A", "value"),
-        ],
+        expected: &[("A", "value")],
     },
     // edge: semicolon does not separate pairs
     Vector {
         name: "edge_semicolon",
         category: "edge",
         input: "A=value;B=other",
-        expected: &[
-        ("A", "value;B=other"),
-        ],
+        expected: &[("A", "value;B=other")],
     },
     // edge: windows path with backslashes
     Vector {
         name: "edge_windows_path",
         category: "edge",
         input: "P=C:\\Users\\me\\dir",
-        expected: &[
-        ("P", "C:\\Users\\me\\dir"),
-        ],
+        expected: &[("P", "C:\\Users\\me\\dir")],
     },
     // edge: windows path in double quotes hits \n expansion
     Vector {
         name: "edge_windows_path_quoted",
         category: "edge",
         input: "P=\"C:\\Users\\new\\dir\"",
-        expected: &[
-        ("P", "C:\\Users\u{a}ew\\dir"),
-        ],
+        expected: &[("P", "C:\\Users\u{a}ew\\dir")],
     },
     // edge: yaml document separator line
     Vector {
         name: "edge_dashes_line",
         category: "edge",
         input: "---\u{a}A=1",
-        expected: &[
-        ("A", "1"),
-        ],
+        expected: &[("A", "1")],
     },
     // edge: whitespace only file
     Vector {
@@ -932,36 +745,27 @@ pub const VECTORS: &[Vector] = &[
         name: "edge_equals_first_char",
         category: "edge",
         input: "A==b",
-        expected: &[
-        ("A", "=b"),
-        ],
+        expected: &[("A", "=b")],
     },
     // edge: unquoted value containing quotes
     Vector {
         name: "edge_value_starts_with_quote_mid",
         category: "edge",
         input: "A=say \"hi\"",
-        expected: &[
-        ("A", "say \"hi\""),
-        ],
+        expected: &[("A", "say \"hi\"")],
     },
     // edge: trailing spaces on unquoted value
     Vector {
         name: "edge_trailing_spaces_unquoted",
         category: "edge",
         input: "A=value    \u{a}B=2",
-        expected: &[
-        ("A", "value"),
-        ("B", "2"),
-        ],
+        expected: &[("A", "value"), ("B", "2")],
     },
     // edge: colon separator with equals in value
     Vector {
         name: "edge_colon_and_equals",
         category: "edge",
         input: "A: b=c",
-        expected: &[
-        ("A", "b=c"),
-        ],
+        expected: &[("A", "b=c")],
     },
 ];

@@ -15,6 +15,7 @@
 //! `$` and `.`. We only treat `\n` as one. Reaching that difference requires a
 //! paragraph separator inside a `.env` file.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 /// Parse the contents of a `.env` file into a map of key/value pairs.
@@ -24,7 +25,14 @@ pub fn parse(src: &[u8]) -> HashMap<String, String> {
     // `Buffer.prototype.toString()` replaces invalid sequences rather than failing.
     let text = String::from_utf8_lossy(src);
     // /\r\n?/mg -> '\n'
-    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    let normalized: Cow<str> = if text.contains('\r') {
+        Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
+    } else {
+        text
+    };
+    // ponytail: a Vec<char> costs one pass and 4 bytes per character. It keeps the
+    // index arithmetic below a direct transcription of the regex. Switch to byte
+    // offsets over the &str if parsing ever shows up in a profile.
     let chars: Vec<char> = normalized.chars().collect();
 
     let mut out = HashMap::new();
@@ -106,7 +114,11 @@ fn match_entry(c: &[char], start: usize) -> Option<Entry> {
 
         for value_start in separators {
             if let Some((raw_value, end)) = match_value(c, value_start) {
-                return Some(Entry { key, raw_value, end });
+                return Some(Entry {
+                    key,
+                    raw_value,
+                    end,
+                });
             }
         }
     }
@@ -209,12 +221,33 @@ fn finish_value(raw: &str) -> String {
         // Only `\n` and `\r` are expanded; `\\`, `\"` and `\t` are left alone.
         stripped.replace("\\n", "\n").replace("\\r", "\r")
     } else {
-        stripped
+        stripped.into_owned()
     }
 }
 
 /// `value.replace(/^(['"`])([\s\S]*)\1$/mg, '$2')`.
-fn strip_quotes(s: &str) -> String {
+fn strip_quotes(s: &str) -> Cow<'_, str> {
+    // Without a newline there is exactly one place `^` can match, so the whole
+    // replace collapses to "strip a matched pair of outer quotes". This is the
+    // shape of virtually every real value, and it needs no allocation.
+    if !s.contains('\n') {
+        let bytes = s.as_bytes();
+        let quote = match bytes.first() {
+            Some(&q @ (b'\'' | b'"' | b'`')) => q,
+            _ => return Cow::Borrowed(s),
+        };
+        // The quote characters are ASCII, so these indices are char boundaries.
+        return match bytes.len() >= 2 && bytes[bytes.len() - 1] == quote {
+            true => Cow::Borrowed(&s[1..s.len() - 1]),
+            false => Cow::Borrowed(s),
+        };
+    }
+
+    Cow::Owned(strip_quotes_multiline(s))
+}
+
+/// General form of [`strip_quotes`], for values containing a newline.
+fn strip_quotes_multiline(s: &str) -> String {
     let c: Vec<char> = s.chars().collect();
     let mut out = String::new();
     let mut copied = 0usize;

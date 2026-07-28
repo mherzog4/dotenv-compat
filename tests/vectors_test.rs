@@ -24,7 +24,11 @@ fn matches_reference_dotenv() {
         if got != expected {
             failures.push(format!(
                 "  [{}] {}\n    input:    {:?}\n    expected: {:?}\n    got:      {:?}",
-                v.category, v.name, v.input, sorted(&expected), sorted(&got)
+                v.category,
+                v.name,
+                v.input,
+                sorted(&expected),
+                sorted(&got)
             ));
         }
     }

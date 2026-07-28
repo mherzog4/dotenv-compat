@@ -169,7 +169,11 @@ fn home_dir() -> Option<PathBuf> {
 fn relative_to_cwd(path: &Path) -> String {
     std::env::current_dir()
         .ok()
-        .and_then(|cwd| path.strip_prefix(&cwd).ok().map(|p| p.display().to_string()))
+        .and_then(|cwd| {
+            path.strip_prefix(&cwd)
+                .ok()
+                .map(|p| p.display().to_string())
+        })
         .unwrap_or_else(|| path.display().to_string())
 }
 

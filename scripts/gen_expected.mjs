@@ -8,6 +8,7 @@
 //
 // The generated file is committed; you only need node to regenerate it.
 
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -72,4 +73,6 @@ ${body}];
 `
 
 writeFileSync(OUT, out)
+// Let rustfmt own the layout, so regenerating never produces a formatting diff.
+execFileSync('cargo', ['fmt'], { cwd: join(here, '..'), stdio: 'inherit' })
 console.log(`wrote ${OUT} (${vectors.length} vectors, dotenv@${require('dotenv/package.json').version})`)

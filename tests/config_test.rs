@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use dotenv_rs::{Options, populate};
 
@@ -69,7 +69,7 @@ fn populate_overwrites_when_asked() {
     assert_eq!(written, map(&[("KEEP", "replacement")]));
 }
 
-fn config_loads_a_file(dir: &PathBuf) {
+fn config_loads_a_file(dir: &Path) {
     let path = dir.join("basic.env");
     fs::write(&path, "DOTENV_RS_A=one\nDOTENV_RS_B=\"two three\"\n").unwrap();
 
@@ -81,7 +81,7 @@ fn config_loads_a_file(dir: &PathBuf) {
     assert_eq!(std::env::var("DOTENV_RS_B").unwrap(), "two three");
 }
 
-fn config_respects_existing_env(dir: &PathBuf) {
+fn config_respects_existing_env(dir: &Path) {
     let path = dir.join("existing.env");
     fs::write(&path, "DOTENV_RS_PRESET=from_file\n").unwrap();
 
@@ -100,7 +100,7 @@ fn config_respects_existing_env(dir: &PathBuf) {
     assert_eq!(result.parsed["DOTENV_RS_PRESET"], "from_file");
 }
 
-fn config_cascades_across_files(dir: &PathBuf) {
+fn config_cascades_across_files(dir: &Path) {
     let first = dir.join("first.env");
     let second = dir.join("second.env");
     fs::write(&first, "DOTENV_RS_CASCADE=first\n").unwrap();
@@ -116,7 +116,7 @@ fn config_cascades_across_files(dir: &PathBuf) {
     assert_eq!(later.parsed["DOTENV_RS_CASCADE"], "second");
 }
 
-fn config_reports_a_missing_file(dir: &PathBuf) {
+fn config_reports_a_missing_file(dir: &Path) {
     let missing = dir.join("does-not-exist.env");
 
     let result = dotenv_rs::config_with(&quiet(vec![missing]));
@@ -126,7 +126,7 @@ fn config_reports_a_missing_file(dir: &PathBuf) {
     assert!(error.to_string().contains("does-not-exist.env"));
 }
 
-fn config_expands_tilde(dir: &PathBuf) {
+fn config_expands_tilde(dir: &Path) {
     let previous_home = std::env::var_os("HOME");
     // SAFETY: single-threaded test.
     unsafe { std::env::set_var("HOME", dir) };
