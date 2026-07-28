@@ -38,6 +38,8 @@ fn config_and_populate() {
     config_expands_tilde(&dir);
     config_honours_the_encoding_option(&dir);
     config_falls_back_to_the_password_database();
+    config_into_leaves_the_process_alone(&dir);
+    cli_options_match_the_reference();
 
     fs::remove_dir_all(&dir).ok();
 }
@@ -213,4 +215,57 @@ fn config_falls_back_to_the_password_database() {
         reported.contains("dotenv-compat-probe.env"),
         "unexpected error: {reported}"
     );
+}
+
+/// The `processEnv` option: write into a caller-supplied map, touching no globals.
+fn config_into_leaves_the_process_alone(dir: &Path) {
+    let path = dir.join("into.env");
+    fs::write(&path, "DOTENV_RS_INTO=one\nDOTENV_RS_INTO_B=two\n").unwrap();
+    let options = quiet(vec![path]);
+
+    let mut target = EnvMap::new();
+    let result = dotenv_compat::config_with_into(&mut target, &options);
+
+    assert!(result.error.is_none(), "{:?}", result.error);
+    assert_eq!(target["DOTENV_RS_INTO"], "one");
+    assert_eq!(result.parsed["DOTENV_RS_INTO"], "one");
+    // The real environment must be untouched -- this is the whole point.
+    assert!(std::env::var("DOTENV_RS_INTO").is_err());
+
+    // An existing key in the target is respected, exactly as in the process env.
+    let mut target = EnvMap::new();
+    target.insert("DOTENV_RS_INTO".into(), "preset".into());
+    let written = dotenv_compat::config_with_into(&mut target, &options);
+    assert_eq!(target["DOTENV_RS_INTO"], "preset");
+    assert_eq!(written.parsed["DOTENV_RS_INTO"], "one");
+
+    // ...unless overwriting.
+    let mut target = EnvMap::new();
+    target.insert("DOTENV_RS_INTO".into(), "preset".into());
+    dotenv_compat::config_with_into(&mut target, &options.clone().with_overwrite(true));
+    assert_eq!(target["DOTENV_RS_INTO"], "one");
+}
+
+/// `lib/cli-options.js`. Expectations recorded from node v23.
+fn cli_options_match_the_reference() {
+    // Absent `dotenv_config_quiet=` forces quiet on, so the preload is silent.
+    assert!(Options::from_cli::<[&str; 0], &str>([]).quiet);
+    assert!(!Options::from_cli(["dotenv_config_quiet=false"]).quiet);
+    assert!(Options::from_cli(["dotenv_config_quiet=true"]).quiet);
+
+    // `Boolean(rawString)`: even "false" turns overriding on.
+    assert!(Options::from_cli(["dotenv_config_override=true"]).overwrite);
+    assert!(Options::from_cli(["dotenv_config_override=false"]).overwrite);
+    assert!(!Options::from_cli(["unrelated=x"]).overwrite);
+
+    let options = Options::from_cli(["dotenv_config_path=/tmp/z.env", "dotenv_config_debug=true"]);
+    assert_eq!(options.path, Some(vec![PathBuf::from("/tmp/z.env")]));
+    assert!(options.debug);
+
+    assert_eq!(
+        Options::from_cli(["dotenv_config_encoding=latin1"]).encoding,
+        Some("latin1".to_string())
+    );
+    // The reference's regex needs a non-empty value, so this matches nothing.
+    assert!(Options::from_cli(["dotenv_config_quiet="]).quiet);
 }

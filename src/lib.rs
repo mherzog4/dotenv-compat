@@ -27,7 +27,9 @@ mod parser;
 mod populate;
 mod vault;
 
-pub use config::{ConfigResult, Options, config, config_options, config_with};
+pub use config::{
+    ConfigResult, Options, config, config_into, config_options, config_with, config_with_into,
+};
 pub use encoding::Encoding;
 pub use error::Error;
 pub use map::EnvMap;

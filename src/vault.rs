@@ -147,6 +147,7 @@ pub fn decrypt(encrypted: &str, key_str: &str) -> Result<String, Error> {
 ///
 /// Writes the process environment; see [`crate::config`].
 pub(crate) unsafe fn parse_vault(
+    target: &mut crate::config::Target<'_>,
     options: &Options,
     path: std::path::PathBuf,
 ) -> Result<EnvMap, Error> {
@@ -154,7 +155,7 @@ pub(crate) unsafe fn parse_vault(
     vault_options.path = Some(vec![path.clone()]);
 
     // SAFETY: forwarded to our own caller.
-    let result = unsafe { crate::config_with(&vault_options) };
+    let result = unsafe { crate::config::config_dotenv_in(target, &vault_options) };
 
     let keys = dotenv_key(options).unwrap_or_default();
     let candidates: Vec<&str> = keys.split(',').collect();

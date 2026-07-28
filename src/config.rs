@@ -101,10 +101,8 @@ impl Options {
     /// The options built from `DOTENV_CONFIG_*`, ported from the reference's
     /// `lib/env-options.js`.
     ///
-    /// This is *not* the whole `dotenv/config` preload: that is
-    /// `Object.assign({}, env-options, cli-options(argv))`, and `lib/cli-options.js`
-    /// additionally forces `quiet` on unless `dotenv_config_quiet=` appears in
-    /// argv. To emulate the preload, add [`Options::with_quiet(true)`](Self::with_quiet).
+    /// For the whole `dotenv/config` preload -- which also reads `argv` -- use
+    /// [`Options::for_preload`].
     ///
     /// Note `DOTENV_CONFIG_OVERRIDE` and `DOTENV_CONFIG_DEBUG`: the reference
     /// copies the raw strings into the options object, and `populate` applies
@@ -138,6 +136,138 @@ impl Options {
 
         options
     }
+
+    /// `dotenv_config_<name>=<value>` arguments, ported from `lib/cli-options.js`.
+    ///
+    /// Recognised names are `encoding`, `path`, `quiet`, `debug`, `override` and
+    /// `DOTENV_KEY`. Note the reference forces `quiet` on unless
+    /// `dotenv_config_quiet=` appears, so the preload is silent by default even
+    /// though `config()` is not.
+    pub fn from_cli<I, S>(args: I) -> Options
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut options = Options::default();
+        let mut saw_quiet = false;
+
+        for argument in args {
+            let Some((name, value)) = argument.as_ref().split_once('=') else {
+                continue;
+            };
+            let Some(name) = name.strip_prefix("dotenv_config_") else {
+                continue;
+            };
+            // The reference's regex requires a non-empty value.
+            if value.is_empty() {
+                continue;
+            }
+
+            match name {
+                "encoding" => options.encoding = Some(value.to_string()),
+                "path" => options.path = Some(vec![PathBuf::from(value)]),
+                "debug" => {
+                    options.debug = parse_boolean(value);
+                    options.populate_debug = Some(true);
+                }
+                // `Boolean(rawString)`: any non-empty value is truthy.
+                "override" => options.overwrite = true,
+                "quiet" => {
+                    options.quiet = parse_boolean(value);
+                    saw_quiet = true;
+                }
+                "DOTENV_KEY" => options.dotenv_key = Some(value.to_string()),
+                _ => {}
+            }
+        }
+
+        if !saw_quiet {
+            options.quiet = true;
+        }
+        options
+    }
+
+    /// The options the `dotenv/config` preload builds:
+    /// `Object.assign({}, env-options, cli-options(argv))`.
+    ///
+    /// Command-line arguments win over environment variables, and `quiet`
+    /// defaults on.
+    pub fn for_preload<I, S>(args: I) -> Options
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let env = Options::from_env();
+        let mut merged = Options::from_cli(args);
+
+        // Anything the command line did not set falls back to the environment.
+        if merged.path.is_none() {
+            merged.path = env.path;
+        }
+        if merged.encoding.is_none() {
+            merged.encoding = env.encoding;
+        }
+        if merged.dotenv_key.is_none() {
+            merged.dotenv_key = env.dotenv_key;
+        }
+        merged.overwrite |= env.overwrite;
+        merged.debug |= env.debug;
+        merged.populate_debug = merged.populate_debug.or(env.populate_debug);
+        merged
+    }
+}
+
+/// Where `config` reads existing variables from and writes results to -- the
+/// reference's `processEnv` option, which defaults to `process.env`.
+///
+/// The reference reads `DOTENV_CONFIG_DEBUG`/`QUIET` from this object too, not
+/// from the real environment, so a supplied map fully replaces it.
+pub(crate) enum Target<'a> {
+    Process,
+    Map(&'a mut EnvMap),
+}
+
+impl Target<'_> {
+    fn get(&self, key: &str) -> Option<String> {
+        match self {
+            Target::Process => std::env::var(key).ok(),
+            Target::Map(map) => map.get(key).cloned(),
+        }
+    }
+
+    /// `Object.prototype.hasOwnProperty.call(processEnv, key)`.
+    fn contains(&self, key: &str) -> bool {
+        match self {
+            // `var_os`, not `var`: a variable holding non-UTF-8 bytes still
+            // exists and must not be silently replaced.
+            Target::Process => std::env::var_os(key).is_some(),
+            Target::Map(map) => map.contains_key(key),
+        }
+    }
+
+    /// # Safety
+    ///
+    /// For [`Target::Process`], the caller must ensure no other thread touches
+    /// the environment concurrently. [`Target::Map`] is always safe.
+    unsafe fn set(&mut self, key: &str, value: &str) {
+        match self {
+            Target::Process => {
+                // The reference tolerates a NUL byte here -- libuv truncates the
+                // exported value at it -- while `set_var` would panic, taking the
+                // process down over a malformed line. A plain object keeps the
+                // whole value, so this only applies to the real environment.
+                let value = match value.find('\0') {
+                    Some(at) => &value[..at],
+                    None => value,
+                };
+                // SAFETY: guaranteed by this function's own contract.
+                unsafe { std::env::set_var(key, value) };
+            }
+            Target::Map(map) => {
+                map.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
 }
 
 /// What [`config`] loaded.
@@ -169,25 +299,59 @@ pub unsafe fn config() -> ConfigResult {
     unsafe { config_options(&Options::default()) }
 }
 
+/// `config(options)` against an arbitrary target.
+///
+/// # Safety
+///
+/// See [`config`] when `target` is `Target::Process`.
+unsafe fn config_in(target: &mut Target<'_>, options: &Options) -> ConfigResult {
+    if crate::vault::dotenv_key(options).is_none() {
+        // SAFETY: forwarded to our own caller.
+        return unsafe { config_dotenv_in(target, options) };
+    }
+
+    let Some(path) = crate::vault::vault_path(options) else {
+        warn("you set DOTENV_KEY but you are missing a .env.vault file at null");
+        // SAFETY: forwarded to our own caller.
+        return unsafe { config_dotenv_in(target, options) };
+    };
+
+    // SAFETY: forwarded to our own caller.
+    unsafe { config_vault_in(target, options, path) }
+}
+
 /// [`config`] with explicit options. Ports the reference's `config(options)`.
 ///
 /// # Safety
 ///
 /// See [`config`].
 pub unsafe fn config_options(options: &Options) -> ConfigResult {
-    if crate::vault::dotenv_key(options).is_none() {
-        // SAFETY: forwarded to our own caller.
-        return unsafe { config_with(options) };
-    }
-
-    let Some(path) = crate::vault::vault_path(options) else {
-        warn("you set DOTENV_KEY but you are missing a .env.vault file at null");
-        // SAFETY: forwarded to our own caller.
-        return unsafe { config_with(options) };
-    };
-
     // SAFETY: forwarded to our own caller.
-    unsafe { config_vault(options, path) }
+    unsafe { config_in(&mut Target::Process, options) }
+}
+
+/// Load `./.env` into `target` instead of the process environment.
+///
+/// This is the reference's `processEnv` option. Because nothing global is
+/// written, it is safe -- no `unsafe` and no thread-safety obligation.
+///
+/// ```
+/// use dotenv_compat::{EnvMap, Options};
+///
+/// let mut env = EnvMap::new();
+/// let result = dotenv_compat::config_into(&mut env, &Options::default());
+/// # let _ = result;
+/// ```
+pub fn config_into(target: &mut EnvMap, options: &Options) -> ConfigResult {
+    // SAFETY: a `Map` target never touches the process environment.
+    unsafe { config_in(&mut Target::Map(target), options) }
+}
+
+/// [`config_into`] without the `DOTENV_KEY` vault handling -- the reference's
+/// `configDotenv({ processEnv })`.
+pub fn config_with_into(target: &mut EnvMap, options: &Options) -> ConfigResult {
+    // SAFETY: a `Map` target never touches the process environment.
+    unsafe { config_dotenv_in(&mut Target::Map(target), options) }
 }
 
 /// `_configVault(options)`.
@@ -195,18 +359,22 @@ pub unsafe fn config_options(options: &Options) -> ConfigResult {
 /// # Safety
 ///
 /// See [`config`].
-unsafe fn config_vault(options: &Options, path: PathBuf) -> ConfigResult {
-    let debug = env_flag("DOTENV_CONFIG_DEBUG", options.debug);
-    let quiet = env_flag("DOTENV_CONFIG_QUIET", options.quiet);
+unsafe fn config_vault_in(
+    target: &mut Target<'_>,
+    options: &Options,
+    path: PathBuf,
+) -> ConfigResult {
+    let debug = target_flag(target, "DOTENV_CONFIG_DEBUG", options.debug);
+    let quiet = target_flag(target, "DOTENV_CONFIG_QUIET", options.quiet);
     if debug || !quiet {
         log("loading env from encrypted .env.vault");
     }
 
     // SAFETY: forwarded to our own caller.
-    match unsafe { crate::vault::parse_vault(options, path) } {
+    match unsafe { crate::vault::parse_vault(target, options, path) } {
         Ok(parsed) => {
             // SAFETY: forwarded to our own caller.
-            unsafe { populate_process_env(&parsed, options) };
+            unsafe { populate_target(target, &parsed, options) };
             ConfigResult {
                 parsed,
                 error: None,
@@ -232,9 +400,19 @@ unsafe fn config_vault(options: &Options, path: PathBuf) -> ConfigResult {
 /// See [`config`] -- the caller must ensure no other thread reads or writes the
 /// environment for the duration of the call.
 pub unsafe fn config_with(options: &Options) -> ConfigResult {
+    // SAFETY: forwarded to our own caller.
+    unsafe { config_dotenv_in(&mut Target::Process, options) }
+}
+
+/// `configDotenv(options)` against an arbitrary target.
+///
+/// # Safety
+///
+/// See [`config`] when `target` is `Target::Process`.
+pub(crate) unsafe fn config_dotenv_in(target: &mut Target<'_>, options: &Options) -> ConfigResult {
     // `parseBoolean(processEnv.DOTENV_CONFIG_DEBUG || options.debug)`
-    let mut debug = env_flag("DOTENV_CONFIG_DEBUG", options.debug);
-    let mut quiet = env_flag("DOTENV_CONFIG_QUIET", options.quiet);
+    let mut debug = target_flag(target, "DOTENV_CONFIG_DEBUG", options.debug);
+    let mut quiet = target_flag(target, "DOTENV_CONFIG_QUIET", options.quiet);
 
     if debug {
         // There is no `encoding` option here, so the reference's else-branch always
@@ -269,11 +447,11 @@ pub unsafe fn config_with(options: &Options) -> ConfigResult {
     }
 
     // SAFETY: forwarded to our own caller by `config_with` being `unsafe`.
-    let populated = unsafe { populate_process_env(&parsed_all, options) };
+    let populated = unsafe { populate_target(target, &parsed_all, options) };
 
     // Re-read, so a `.env` that sets DOTENV_CONFIG_QUIET silences its own summary.
-    debug = env_flag("DOTENV_CONFIG_DEBUG", debug);
-    quiet = env_flag("DOTENV_CONFIG_QUIET", quiet);
+    debug = target_flag(target, "DOTENV_CONFIG_DEBUG", debug);
+    quiet = target_flag(target, "DOTENV_CONFIG_QUIET", quiet);
 
     if debug || !quiet {
         let shown: Vec<String> = paths.iter().map(|p| relative_to_cwd(p)).collect();
@@ -294,26 +472,24 @@ pub unsafe fn config_with(options: &Options) -> ConfigResult {
 /// # Safety
 ///
 /// The caller must ensure no other thread touches the environment concurrently.
-unsafe fn populate_process_env(parsed: &EnvMap, options: &Options) -> EnvMap {
-    let mut set = |key: &str, value: &str| {
-        // The reference tolerates a NUL byte here (libuv truncates the exported
-        // value at it); `set_var` would panic, taking the whole process down for
-        // what is at worst a malformed line. Truncating keeps the crash away and
-        // lands on the same exported value.
-        let value = match value.find('\0') {
-            Some(at) => &value[..at],
-            None => value,
-        };
-        // SAFETY: the caller of this `unsafe fn` guarantees no concurrent access.
-        unsafe { std::env::set_var(key, value) };
+unsafe fn populate_target(target: &mut Target<'_>, parsed: &EnvMap, options: &Options) -> EnvMap {
+    // Snapshot first: `set` needs a mutable borrow of the same target.
+    let existing: Vec<String> = parsed
+        .keys()
+        .filter(|key| target.contains(key))
+        .cloned()
+        .collect();
+
+    let mut writer = |key: &str, value: &str| {
+        // SAFETY: forwarded to our own caller.
+        unsafe { target.set(key, value) };
     };
-    // `var_os`, not `vars()`: a variable holding non-UTF-8 bytes still exists and
-    // must not be silently replaced.
+
     populate_with(
         parsed,
         options,
-        |key| std::env::var_os(key).is_some(),
-        &mut set,
+        |key| existing.iter().any(|k| k == key),
+        &mut writer,
     )
 }
 
@@ -341,8 +517,8 @@ fn read_decoded(path: &Path, encoding: Option<&str>) -> Result<String, Error> {
 /// An unset or empty variable leaves `fallback` in charge; any other value is run
 /// through `parse_boolean`, so `DOTENV_CONFIG_QUIET=false` forces it off even when
 /// the caller asked for `quiet: true`.
-fn env_flag(name: &str, fallback: bool) -> bool {
-    match non_empty(name) {
+fn target_flag(target: &Target<'_>, name: &str, fallback: bool) -> bool {
+    match target.get(name).filter(|value| !value.is_empty()) {
         Some(value) => parse_boolean(&value),
         None => fallback,
     }

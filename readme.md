@@ -77,9 +77,14 @@ assert_eq!(written.len(), 1);        // only HOST was written
 | `unsafe fn config() -> ConfigResult` | `config` | Loads `./.env`. Honours `DOTENV_KEY` (see below). |
 | `unsafe fn config_with(&Options)` | `configDotenv` | Loads the configured files. No `DOTENV_KEY` handling, same as the reference. |
 | `populate(&mut EnvMap, &EnvMap, &Options) -> EnvMap` | `populate` | Pure; returns only the keys it wrote. |
-| `Options` | | `#[non_exhaustive]`; build with `Options::default()` and the `with_*` methods. `Options::from_env()` ports `lib/env-options.js` only — the `dotenv/config` preload also forces `quiet` on, so add `.with_quiet(true)` to emulate it. |
+| `Options` | | `#[non_exhaustive]`; build with `Options::default()` and the `with_*` methods. |
+| `Options::from_env()` | `lib/env-options.js` | `DOTENV_CONFIG_*` variables. |
+| `Options::from_cli(args)` | `lib/cli-options.js` | `dotenv_config_<name>=<value>` arguments. |
+| `Options::for_preload(args)` | `dotenv/config` | Both, merged as the preload does. |
 | `ConfigResult` | | `parsed`, plus `error` for the last unreadable file. Missing files are not fatal. |
 | `unsafe fn config_options(&Options)` | `config(options)` | Vault-aware, with explicit options. |
+| `config_into(&mut EnvMap, &Options)` | `config({ processEnv })` | Writes into your map. **Safe** -- touches nothing global. |
+| `config_with_into(&mut EnvMap, &Options)` | `configDotenv({ processEnv })` | Same, without `DOTENV_KEY` handling. |
 | `decrypt(&str, &str)` | `decrypt` | AES-256-GCM `.env.vault` decryption. |
 | `EnvMap` | a JS object | Ordered string map. Array-index keys enumerate first (ascending), then the rest in insertion order -- exactly as a JS object does. |
 | `Error::code()` | `err.code` | `"ENOENT"`, `"INVALID_DOTENV_KEY"`, `"DECRYPTION_FAILED"`, … |
@@ -123,6 +128,8 @@ Only two differences remain, both forced by the language rather than chosen:
 
 | | |
 | --- | --- |
+| `path` as a `URL` | The reference accepts a `URL` object because `fs.readFileSync` does. Rust has no such coercion; convert with `url::Url::to_file_path()` and pass the `PathBuf`. Behaviour is identical, only the accepted type differs. |
+| `OBJECT_REQUIRED` | `populate` throws this when `parsed` is not an object. Rust's type system makes that unrepresentable, so the error cannot occur. |
 | Errors are returned, not thrown | The reference `throw`s for vault failures. Rust has no exceptions, so those surface on `ConfigResult::error` with an empty `parsed`. `Error::code()` gives the JavaScript `err.code`. |
 | Unpaired surrogates | With `encoding: "utf16le"`, a lone surrogate survives in JavaScript but cannot exist in a Rust `String`, so it becomes U+FFFD. |
 
@@ -163,8 +170,17 @@ There is no way for the crate to enforce that, so the obligation is the caller's
 and the signature says so. In practice: call them early in `main`, before
 spawning threads.
 
-`parse` and `populate` are safe and touch no global state. If you would rather
-not take on the obligation, use those and apply the result yourself.
+`parse`, `populate`, `config_into` and `config_with_into` are safe and touch no
+global state. If you would rather not take on the obligation, use `config_into`
+with your own map:
+
+```rust,no_run
+use dotenv_compat::{EnvMap, Options};
+
+let mut env = EnvMap::new();
+let result = dotenv_compat::config_into(&mut env, &Options::default());
+// The process environment is untouched.
+```
 
 ### Memory
 

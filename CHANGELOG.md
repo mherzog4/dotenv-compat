@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.4.0 — unreleased
+
+Found by auditing `lib/main.d.ts` -- the reference's own declaration of its
+public surface -- rather than working from the implementation. Three documented
+options had no equivalent here.
+
+### Added
+
+- **`config_into` / `config_with_into`** -- the `processEnv` option. Loads into a
+  caller-supplied `EnvMap` instead of the process environment. These are **safe
+  functions**: with a target of your own, nothing global is written, so there is
+  no `unsafe` and no thread-safety obligation. The reference also reads
+  `DOTENV_CONFIG_DEBUG`/`QUIET` from that object rather than the real
+  environment, and so do these.
+- **`Options::from_cli`** -- `lib/cli-options.js`, parsing
+  `dotenv_config_<name>=<value>` arguments. Note it forces `quiet` on unless
+  `dotenv_config_quiet=` is present, which is why `node -r dotenv/config` is
+  silent while `config()` is not.
+- **`Options::for_preload`** -- the whole `dotenv/config` entry point:
+  `Object.assign({}, env-options, cli-options(argv))`.
+
+### Verification
+
+Recorded from node v23: 4 `processEnv` scenarios (including
+`DOTENV_CONFIG_QUIET` set inside the target map, which silences the summary) and
+9 `cli-options` cases.
+
+### Still not 1:1
+
+`path` accepting a `URL` object, and the `OBJECT_REQUIRED` error -- both artefacts
+of JavaScript's type system with no reachable Rust equivalent. Documented in the
+readme.
+
 ## 0.3.1 — unreleased
 
 ### Fixed
