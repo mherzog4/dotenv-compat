@@ -18,7 +18,7 @@ Initial port of [dotenv](https://github.com/motdotla/dotenv) `17.4.2` to Rust.
 
 - 107 vectors in `tests/vectors.json`, with expectations recorded from the
   reference implementation rather than hand-written.
-- `scripts/fuzz.mjs`, a differential fuzzer. 740,000 random inputs agree.
+- `scripts/fuzz.mjs`, a differential fuzzer. 1,040,000 random inputs agree.
 - Benchmarks against the reference on identical input.
 
 ### Known differences

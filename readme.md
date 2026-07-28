@@ -4,7 +4,7 @@ A Rust port of the JavaScript [dotenv](https://github.com/motdotla/dotenv) libra
 
 The goal is behavioural equivalence with `dotenv@17.4.2`, quirks included. The parser
 is checked against the reference implementation by 107 recorded test vectors and a
-differential fuzzer; at the time of writing, 740,000 random inputs produce
+differential fuzzer; at the time of writing, 1,040,000 random inputs produce
 byte-identical output.
 
 No dependencies.
