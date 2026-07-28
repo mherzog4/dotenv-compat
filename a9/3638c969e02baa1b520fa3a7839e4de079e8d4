@@ -1,0 +1,26 @@
+src/nodepath.rs
+  s_83bf9debfc8b2e::t_2c75aacb214a2e 84-94,96-106,114-115,122-153,172-180
+  s_83bf9debfc8b2e::t_cbf4f8a1b38b42 217,220-246,248-272,274-275
+  s_83bf9debfc8b2e::t_ee874fca8e56e7 116-121
+  s_83bf9debfc8b2e::t_5bac9abc1d8935 212-216,218-219,247,273,276,305
+CHANGELOG.md
+  s_83bf9debfc8b2e::t_6eb67bda6bc9e9 3-25
+Cargo.toml
+  s_83bf9debfc8b2e::t_c9d1310fe17bf6 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a93638c969e02baa1b520fa3a7839e4de079e8d4",
+  "prompts": {},
+  "sessions": {
+    "s_83bf9debfc8b2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f72ca6d-2a09-4e47-8e25-954a7a0a661d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Mherzog4 <matthewherzog4@gmail.com>"
+    }
+  }
+}
