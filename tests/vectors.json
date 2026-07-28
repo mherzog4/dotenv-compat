@@ -796,5 +796,41 @@
     "category": "order",
     "input": "1.2=a\nB=b",
     "description": "a dotted numeric key is not an array index"
+  },
+  {
+    "name": "readme_backtick_mixed_quotes",
+    "category": "quotes",
+    "input": "BACKTICK_KEY=`This has 'single' and \"double\" quotes inside of it.`",
+    "description": "the backtick example from the reference README"
+  },
+  {
+    "name": "readme_json_inner_quotes",
+    "category": "edge",
+    "input": "JSON={\"foo\": \"bar\"}",
+    "description": "inner quotes are maintained, from the reference README"
+  },
+  {
+    "name": "readme_trim_unquoted",
+    "category": "basic",
+    "input": "FOO=  some value  ",
+    "description": "whitespace trimmed from unquoted values, from the reference README"
+  },
+  {
+    "name": "readme_quoted_keeps_space",
+    "category": "quotes",
+    "input": "FOO=\"  some value  \"",
+    "description": "quoted values keep surrounding whitespace, from the reference README"
+  },
+  {
+    "name": "readme_hash_in_quotes",
+    "category": "comments",
+    "input": "SECRET_HASH=\"something-with-a-#-hash\"",
+    "description": "a # inside quotes is literal, from the reference README"
+  },
+  {
+    "name": "readme_multiline_pem",
+    "category": "multiline",
+    "input": "PRIVATE_KEY=\"-----BEGIN RSA PRIVATE KEY-----\nKh9NV...\n-----END RSA PRIVATE KEY-----\"",
+    "description": "literal multiline private key, from the reference README"
   }
 ]

@@ -962,4 +962,52 @@ pub const VECTORS: &[Vector] = &[
         input: "1.2=a\u{a}B=b",
         expected: &[("1.2", "a"), ("B", "b")],
     },
+    // quotes: the backtick example from the reference README
+    Vector {
+        name: "readme_backtick_mixed_quotes",
+        category: "quotes",
+        input: "BACKTICK_KEY=`This has 'single' and \"double\" quotes inside of it.`",
+        expected: &[(
+            "BACKTICK_KEY",
+            "This has 'single' and \"double\" quotes inside of it.",
+        )],
+    },
+    // edge: inner quotes are maintained, from the reference README
+    Vector {
+        name: "readme_json_inner_quotes",
+        category: "edge",
+        input: "JSON={\"foo\": \"bar\"}",
+        expected: &[("JSON", "{\"foo\": \"bar\"}")],
+    },
+    // basic: whitespace trimmed from unquoted values, from the reference README
+    Vector {
+        name: "readme_trim_unquoted",
+        category: "basic",
+        input: "FOO=  some value  ",
+        expected: &[("FOO", "some value")],
+    },
+    // quotes: quoted values keep surrounding whitespace, from the reference README
+    Vector {
+        name: "readme_quoted_keeps_space",
+        category: "quotes",
+        input: "FOO=\"  some value  \"",
+        expected: &[("FOO", "  some value  ")],
+    },
+    // comments: a # inside quotes is literal, from the reference README
+    Vector {
+        name: "readme_hash_in_quotes",
+        category: "comments",
+        input: "SECRET_HASH=\"something-with-a-#-hash\"",
+        expected: &[("SECRET_HASH", "something-with-a-#-hash")],
+    },
+    // multiline: literal multiline private key, from the reference README
+    Vector {
+        name: "readme_multiline_pem",
+        category: "multiline",
+        input: "PRIVATE_KEY=\"-----BEGIN RSA PRIVATE KEY-----\u{a}Kh9NV...\u{a}-----END RSA PRIVATE KEY-----\"",
+        expected: &[(
+            "PRIVATE_KEY",
+            "-----BEGIN RSA PRIVATE KEY-----\u{a}Kh9NV...\u{a}-----END RSA PRIVATE KEY-----",
+        )],
+    },
 ];
