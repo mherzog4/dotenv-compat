@@ -27,6 +27,7 @@ fn vault() {
     fs::create_dir_all(&dir).unwrap();
 
     decrypts_the_reference_fixture();
+    decrypts_the_upstream_test_vector();
     rejects_a_short_key();
     rejects_a_wrong_key();
     reports_a_malformed_key();
@@ -45,6 +46,22 @@ fn decrypts_the_reference_fixture() {
 
     // The reference takes the last 64 characters, so any prefix is ignored.
     assert!(decrypt(BLOB, &format!("anything_at_all_{KEY_HEX}")).is_ok());
+}
+
+/// The ciphertext and key from the reference's own `tests/test-decrypt.js` at
+/// v17.4.2. Unlike the fixture above, this artefact was produced by
+/// dotenv-vault rather than by this project, so it is an independent check that
+/// the AES-256-GCM framing is interpreted the same way.
+///
+/// Note the key carries no `key_` prefix here, exercising the plain-hex path.
+fn decrypts_the_upstream_test_vector() {
+    let encrypted = "s7NYXa809k/bVSPwIAmJhPJmEGTtU0hG58hOZy7I0ix6y5HP8LsHBsZCYC/gw5DDFy5DgOcyd18R";
+    let key = "ddcaa26504cd70a6fef9801901c3981538563a1767c297cb8416e8a38c62fe00";
+
+    assert_eq!(
+        decrypt(encrypted, key).expect("upstream vector should decrypt"),
+        "# development@v6\nALPHA=\"zeta\""
+    );
 }
 
 fn rejects_a_short_key() {
