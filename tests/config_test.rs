@@ -118,9 +118,13 @@ fn config_reports_a_missing_file(dir: &Path) {
 }
 
 fn config_expands_tilde(dir: &Path) {
-    let previous_home = std::env::var_os("HOME");
+    // Node's `os.homedir()` reads USERPROFILE on Windows and HOME elsewhere, and
+    // so does the crate. Setting the wrong one here made this pass on macOS and
+    // fail on Windows.
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    let previous = std::env::var_os(var);
     // SAFETY: single-threaded test.
-    unsafe { std::env::set_var("HOME", dir) };
+    unsafe { std::env::set_var(var, dir) };
 
     fs::write(dir.join("tilde.env"), "DOTENV_RS_TILDE=yes\n").unwrap();
     let result = load(&quiet(vec![PathBuf::from("~/tilde.env")]));
@@ -128,9 +132,19 @@ fn config_expands_tilde(dir: &Path) {
     assert!(result.error.is_none(), "{:?}", result.error);
     assert_eq!(result.parsed["DOTENV_RS_TILDE"], "yes");
 
+    // A `~` path is expanded lexically, so `~/../x` never traverses a symlink.
+    fs::write(dir.join("sibling.env"), "DOTENV_RS_SIBLING=yes\n").unwrap();
+    let nested = dir.join("nested");
+    fs::create_dir_all(&nested).unwrap();
     // SAFETY: single-threaded test.
-    match previous_home {
-        Some(home) => unsafe { std::env::set_var("HOME", home) },
-        None => unsafe { std::env::remove_var("HOME") },
+    unsafe { std::env::set_var(var, &nested) };
+    let result = load(&quiet(vec![PathBuf::from("~/../sibling.env")]));
+    assert!(result.error.is_none(), "{:?}", result.error);
+    assert_eq!(result.parsed["DOTENV_RS_SIBLING"], "yes");
+
+    // SAFETY: single-threaded test.
+    match previous {
+        Some(home) => unsafe { std::env::set_var(var, home) },
+        None => unsafe { std::env::remove_var(var) },
     }
 }
