@@ -40,6 +40,8 @@ fn config_and_populate() {
     config_falls_back_to_the_password_database();
     config_into_leaves_the_process_alone(&dir);
     cli_options_match_the_reference();
+    config_respects_an_existing_empty_value(&dir);
+    config_treats_a_file_url_string_as_a_literal_path(&dir);
 
     fs::remove_dir_all(&dir).ok();
 }
@@ -268,4 +270,36 @@ fn cli_options_match_the_reference() {
     );
     // The reference's regex needs a non-empty value, so this matches nothing.
     assert!(Options::from_cli(["dotenv_config_quiet="]).quiet);
+}
+
+/// An existing variable set to the empty string still counts as set.
+///
+/// The reference uses `hasOwnProperty`, which is true for a falsy value, so the
+/// key is not overwritten. Upstream tests this explicitly.
+fn config_respects_an_existing_empty_value(dir: &Path) {
+    let path = dir.join("falsy.env");
+    fs::write(&path, "DOTENV_RS_FALSY=basic\n").unwrap();
+
+    // SAFETY: single-threaded test.
+    unsafe { std::env::set_var("DOTENV_RS_FALSY", "") };
+    let result = load(&quiet(vec![path.clone()]));
+    assert_eq!(result.parsed["DOTENV_RS_FALSY"], "basic");
+    assert_eq!(std::env::var("DOTENV_RS_FALSY").unwrap(), "");
+
+    // ...but overwriting still replaces it.
+    load(&quiet(vec![path]).with_overwrite(true));
+    assert_eq!(std::env::var("DOTENV_RS_FALSY").unwrap(), "basic");
+}
+
+/// A `file://` string is an ordinary relative path, not a URL.
+///
+/// Only a `URL` *object* is special in the reference, and Rust has no such
+/// coercion, so the string case must -- and does -- fail identically.
+fn config_treats_a_file_url_string_as_a_literal_path(_dir: &Path) {
+    let result = load(&quiet(vec![PathBuf::from("file:///tests/.env")]));
+    let error = result.error.expect("a file:// string is not a real path");
+    assert_eq!(
+        error.to_string(),
+        "ENOENT: no such file or directory, open 'file:///tests/.env'"
+    );
 }

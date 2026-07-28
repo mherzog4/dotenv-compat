@@ -128,7 +128,7 @@ Only two differences remain, both forced by the language rather than chosen:
 
 | | |
 | --- | --- |
-| `path` as a `URL` | The reference accepts a `URL` object because `fs.readFileSync` does. Rust has no such coercion; convert with `url::Url::to_file_path()` and pass the `PathBuf`. Behaviour is identical, only the accepted type differs. |
+| `path` as a `URL` *object* | The reference accepts a `URL` object because `fs.readFileSync` does. Rust has no such coercion; convert with `url::Url::to_file_path()` and pass the `PathBuf`. Note a `file://` *string* is an ordinary relative path in both, failing with the same `ENOENT`. |
 | `OBJECT_REQUIRED` | `populate` throws this when `parsed` is not an object. Rust's type system makes that unrepresentable, so the error cannot occur. |
 | Errors are returned, not thrown | The reference `throw`s for vault failures. Rust has no exceptions, so those surface on `ConfigResult::error` with an empty `parsed`. `Error::code()` gives the JavaScript `err.code`. |
 | Unpaired surrogates | With `encoding: "utf16le"`, a lone surrogate survives in JavaScript but cannot exist in a Rust `String`, so it becomes U+FFFD. |
