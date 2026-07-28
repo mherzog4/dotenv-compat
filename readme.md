@@ -2,16 +2,20 @@
 
 A Rust port of the JavaScript [dotenv](https://github.com/motdotla/dotenv) library.
 
-The goal is behavioural equivalence with `dotenv@17.4.2`, quirks included. The parser
-is checked against the reference implementation by 107 recorded test vectors and a
-differential fuzzer; at the time of writing, 1,040,000 random inputs produce
-byte-identical output.
+The goal is behavioural equivalence with the `lib/main.js` that **`dotenv@17.4.2`
+ships on npm**, quirks included. (Note the `master` branch on GitHub is a later
+refactor with the vault code removed and different logging — that is *not* what
+this crate targets.)
+
+Checked against the reference by 127 recorded test vectors and two differential
+fuzzers, plus a split-context adversarial review that compared every function
+against the JavaScript source line by line.
 
 No dependencies.
 
 ## Usage
 
-```rust
+```rust,no_run
 fn main() {
     // Load ./.env into the process environment. Call before spawning threads.
     dotenv_compat::config();
@@ -23,11 +27,11 @@ fn main() {
 
 Loading specific files, or letting `.env` values win over what is already set:
 
-```rust
+```rust,no_run
 use dotenv_compat::Options;
 
 let result = dotenv_compat::config_with(&Options {
-    path: vec![".env".into(), "~/.env.local".into()],
+    path: Some(vec![".env".into(), "~/.env.local".into()]),
     overwrite: true,
     quiet: true,
     ..Options::default()
@@ -48,10 +52,9 @@ assert_eq!(parsed["PORT"], "8080");
 Applying a parsed map to something other than the process environment:
 
 ```rust
-use std::collections::HashMap;
-use dotenv_compat::{Options, parse, populate};
+use dotenv_compat::{EnvMap, Options, parse, populate};
 
-let mut target: HashMap<String, String> = HashMap::new();
+let mut target = EnvMap::new();
 target.insert("PORT".into(), "9999".into());
 
 let written = populate(&mut target, &parse(b"PORT=8080\nHOST=x"), &Options::default());
@@ -62,14 +65,19 @@ assert_eq!(written.len(), 1);        // only HOST was written
 
 ## API
 
-| Item | Notes |
-| --- | --- |
-| `parse(&[u8]) -> HashMap<String, String>` | Never fails. Invalid UTF-8 is replaced lossily, matching `Buffer.toString()`. |
-| `config() -> ConfigResult` | Loads `./.env`, with defaults from `DOTENV_CONFIG_*`. |
-| `config_with(&Options) -> ConfigResult` | Loads the configured files. |
-| `populate(&mut HashMap, &HashMap, &Options) -> HashMap` | Pure; returns only the keys it wrote. |
-| `Options` | `path`, `overwrite`, `debug`, `quiet`. |
-| `ConfigResult` | `parsed`, plus `error` for the last unreadable file. Missing files are not fatal. |
+| Item | Maps to | Notes |
+| --- | --- | --- |
+| `parse(&[u8]) -> EnvMap` | `parse` | Never fails. Invalid UTF-8 is replaced lossily, matching `Buffer.toString()`. |
+| `config() -> ConfigResult` | `config` | Loads `./.env`. Honours `DOTENV_KEY` (see below). |
+| `config_with(&Options)` | `configDotenv` | Loads the configured files. No `DOTENV_KEY` handling, same as the reference. |
+| `populate(&mut EnvMap, &EnvMap, &Options) -> EnvMap` | `populate` | Pure; returns only the keys it wrote. |
+| `Options` | | `path`, `overwrite`, `debug`, `quiet`. `Options::from_env()` is `lib/env-options.js`. |
+| `ConfigResult` | | `parsed`, plus `error` for the last unreadable file. Missing files are not fatal. |
+| `EnvMap` | a JS object | Insertion-ordered string map, so results stay in file order. |
+| `Error::kind()` | `err.code` | `ErrorKind::NotFound` is the `ENOENT` equivalent. |
+
+`Options::path` is `Option<Vec<PathBuf>>`, mirroring the JavaScript distinction:
+`None` loads the default `./.env`, while `Some(vec![])` loads nothing at all.
 
 ## Syntax
 
@@ -102,16 +110,25 @@ Escape handling matches the reference exactly, which is narrower than people exp
 
 ## Differences from the JavaScript version
 
+Everything below is a deliberate, documented divergence. Everything else is
+intended to match, including behaviour that is arguably a bug upstream.
+
 | | |
 | --- | --- |
+| `.env.vault` / `DOTENV_KEY` | Not supported. When `DOTENV_KEY` is set *and* a vault exists, `config()` refuses with `Error::VaultUnsupported` rather than silently loading a plain `.env`, which would be a different set of secrets. Decryption would need an AES-256-GCM dependency. The missing-vault warning and fallback *are* ported. |
 | `encoding` option | Not supported. Files are read as UTF-8; `DOTENV_CONFIG_ENCODING` is ignored. |
-| `DOTENV_CONFIG_*` | Applied by `Options::from_env()` (used by `config()`). An `Options` you construct is taken verbatim. |
-| `processEnv` option | Use `parse` + `populate` against your own `HashMap`. |
-| U+2028 / U+2029 | Not treated as line terminators. |
-| Summary path display | Never produces `../` segments; unrelated paths are printed in full. |
-| Key order | `parse` returns a `HashMap`, so insertion order is not preserved. Last assignment still wins. |
+| `processEnv` option | Use `parse` + `populate` against your own `EnvMap`. |
+| NUL bytes in values | `set_var` panics on an interior NUL, so the value is truncated at it. This lands on the same exported value libuv produces, but `parsed` keeps the full string in both implementations. |
+| `os.homedir()` fallback | With `HOME` unset on Unix, Node falls back to `getpwuid()`; that needs libc, so a leading `~` is left unexpanded instead. |
+| Tip text | The random `// tip:` suffix is ported, but the crate emits its own eight strings verbatim from the reference — they may drift as upstream edits them. |
 
-Faithful on purpose: `quiet` defaults to `false`, so `config()` prints
+Faithful on purpose, and easy to mistake for bugs:
+
+* `quiet` defaults to `false`, so `config()` prints `◇ injected env (N) from .env // tip: …` to **stdout**.
+* `DOTENV_CONFIG_OVERRIDE=false` turns overriding **on**. The reference copies the raw string into `options.override` and applies `Boolean()`, not `parseBoolean`, so every non-empty value is truthy.
+* `DOTENV_CONFIG_DEBUG` / `DOTENV_CONFIG_QUIET` are read on every `config_with` call and beat the explicit option. They are re-read after population, so a `.env` that sets `DOTENV_CONFIG_QUIET=true` silences its own summary line.
+* A `__proto__` key is silently dropped. Assigning it on a plain JavaScript object hits the prototype setter and creates no own property.
+* `populate`'s `debug` is a *different flag* from `config`'s: the reference reads the raw option there, with no `DOTENV_CONFIG_DEBUG` input.
 `◇ injected env (N) from .env` to stderr just like the original. Set `quiet: true`
 to silence it.
 
@@ -124,7 +141,7 @@ spawning threads. `parse` and `populate` touch no global state.
 ## Development
 
 ```sh
-cargo test                      # 107 vectors + config/populate tests
+cargo test                      # 127 vectors + config/populate tests
 cargo clippy --all-targets      # clean
 cargo run --release --example bench
 

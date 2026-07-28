@@ -3,21 +3,20 @@
 //! Everything lives in one test function on purpose: both the process environment
 //! and `HOME` are global, so parallel test threads would race on them.
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dotenv_compat::{Options, populate};
+use dotenv_compat::{EnvMap, Options, populate};
 
 fn quiet(path: Vec<PathBuf>) -> Options {
     Options {
-        path,
+        path: Some(path),
         quiet: true,
         ..Options::default()
     }
 }
 
-fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+fn map(pairs: &[(&str, &str)]) -> EnvMap {
     pairs
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))

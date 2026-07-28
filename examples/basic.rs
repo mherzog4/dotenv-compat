@@ -21,7 +21,7 @@ LITERAL='no \n expansion in single quotes'
     .unwrap();
 
     let result = dotenv_compat::config_with(&Options {
-        path: vec![path.clone()],
+        path: Some(vec![path.clone()]),
         quiet: true,
         ..Options::default()
     });

@@ -1,0 +1,124 @@
+//! An insertion-ordered string map.
+//!
+//! The reference implementation accumulates into a plain JavaScript object, so
+//! `parse()`'s result, `populate()`'s iteration order and the debug output are all
+//! in file order. A `HashMap` would randomise them per process, so callers that
+//! re-serialise a `.env` file or diff debug logs would see shuffled output.
+//!
+//! Re-assigning an existing key keeps its original position and replaces the
+//! value, which is what property assignment does in JavaScript.
+
+use std::collections::HashMap;
+use std::ops::Index;
+
+#[derive(Clone, Default)]
+pub struct EnvMap {
+    entries: Vec<(String, String)>,
+    index: HashMap<String, usize>,
+}
+
+impl EnvMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Insert or replace, returning the previous value. Position is preserved on replace.
+    pub fn insert(&mut self, key: String, value: String) -> Option<String> {
+        match self.index.get(&key) {
+            Some(&at) => Some(std::mem::replace(&mut self.entries[at].1, value)),
+            None => {
+                self.index.insert(key.clone(), self.entries.len());
+                self.entries.push((key, value));
+                None
+            }
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.index.get(key).map(|&at| &self.entries[at].1)
+    }
+
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.index.contains_key(key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Entries in insertion order.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.entries.iter().map(|(k, v)| (k, v))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.entries.iter().map(|(k, _)| k)
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &String> {
+        self.entries.iter().map(|(_, v)| v)
+    }
+}
+
+impl Index<&str> for EnvMap {
+    type Output = String;
+
+    fn index(&self, key: &str) -> &String {
+        self.get(key).expect("no such key")
+    }
+}
+
+impl<'a> IntoIterator for &'a EnvMap {
+    type Item = (&'a String, &'a String);
+    type IntoIter = Box<dyn Iterator<Item = (&'a String, &'a String)> + 'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.iter())
+    }
+}
+
+impl IntoIterator for EnvMap {
+    type Item = (String, String);
+    type IntoIter = std::vec::IntoIter<(String, String)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.into_iter()
+    }
+}
+
+impl FromIterator<(String, String)> for EnvMap {
+    fn from_iter<I: IntoIterator<Item = (String, String)>>(iter: I) -> Self {
+        let mut map = EnvMap::new();
+        for (key, value) in iter {
+            map.insert(key, value);
+        }
+        map
+    }
+}
+
+impl Extend<(String, String)> for EnvMap {
+    fn extend<I: IntoIterator<Item = (String, String)>>(&mut self, iter: I) {
+        for (key, value) in iter {
+            self.insert(key, value);
+        }
+    }
+}
+
+/// Order-insensitive, like comparing two JavaScript objects by their entries.
+impl PartialEq for EnvMap {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().all(|(k, v)| other.get(k) == Some(v))
+    }
+}
+
+impl Eq for EnvMap {}
+
+impl std::fmt::Debug for EnvMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}

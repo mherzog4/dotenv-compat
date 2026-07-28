@@ -768,4 +768,144 @@ pub const VECTORS: &[Vector] = &[
         input: "A: b=c",
         expected: &[("A", "b=c")],
     },
+    // prototype: __proto__ hits the prototype setter and creates no own property
+    Vector {
+        name: "proto_key_alone",
+        category: "prototype",
+        input: "__proto__=pwned",
+        expected: &[],
+    },
+    // prototype: __proto__ is dropped, siblings survive
+    Vector {
+        name: "proto_key_with_others",
+        category: "prototype",
+        input: "__proto__=pwned\u{a}A=1",
+        expected: &[("A", "1")],
+    },
+    // prototype: quoted __proto__ value is still dropped
+    Vector {
+        name: "proto_key_quoted",
+        category: "prototype",
+        input: "__proto__=\"x\"\u{a}B=2",
+        expected: &[("B", "2")],
+    },
+    // prototype: repeated __proto__
+    Vector {
+        name: "proto_key_duplicate",
+        category: "prototype",
+        input: "__proto__=a\u{a}__proto__=b\u{a}C=3",
+        expected: &[("C", "3")],
+    },
+    // prototype: __proto__ behind the export keyword
+    Vector {
+        name: "proto_key_exported",
+        category: "prototype",
+        input: "export __proto__=a\u{a}D=4",
+        expected: &[("D", "4")],
+    },
+    // prototype: constructor is a data property, assignment works
+    Vector {
+        name: "constructor_key",
+        category: "prototype",
+        input: "constructor=ok",
+        expected: &[("constructor", "ok")],
+    },
+    // prototype: toString is a data property, assignment works
+    Vector {
+        name: "tostring_key",
+        category: "prototype",
+        input: "toString=ok",
+        expected: &[("toString", "ok")],
+    },
+    // prototype: hasOwnProperty is a data property, assignment works
+    Vector {
+        name: "hasownproperty_key",
+        category: "prototype",
+        input: "hasOwnProperty=ok",
+        expected: &[("hasOwnProperty", "ok")],
+    },
+    // line_endings: U+2028 terminates a whole-line comment
+    Vector {
+        name: "u2028_ends_comment",
+        category: "line_endings",
+        input: "#c\u{2028}A=1",
+        expected: &[("A", "1")],
+    },
+    // line_endings: U+2028 after a quoted value starts a new record
+    Vector {
+        name: "u2028_after_quoted",
+        category: "line_endings",
+        input: "A=\"#\"\u{2028}B=2",
+        expected: &[("A", "#"), ("B", "2")],
+    },
+    // line_endings: U+2028 separates two records
+    Vector {
+        name: "u2028_after_unquoted",
+        category: "line_endings",
+        input: "A=1\u{2028}B=2",
+        expected: &[("A", "1\u{2028}B=2")],
+    },
+    // line_endings: U+2028 ends an inline comment
+    Vector {
+        name: "u2028_ends_inline_comment",
+        category: "line_endings",
+        input: "A=1 # c\u{2028}B=2",
+        expected: &[("A", "1"), ("B", "2")],
+    },
+    // line_endings: U+2028 ends a no-space inline comment
+    Vector {
+        name: "u2028_hash_no_space",
+        category: "line_endings",
+        input: "A=1#c\u{2028}B=2",
+        expected: &[("A", "1"), ("B", "2")],
+    },
+    // line_endings: U+2029 separates two records
+    Vector {
+        name: "u2029_separates",
+        category: "line_endings",
+        input: "A=1\u{2029}B=2",
+        expected: &[("A", "1\u{2029}B=2")],
+    },
+    // line_endings: U+2028 inside a quoted value
+    Vector {
+        name: "u2028_inside_quotes",
+        category: "line_endings",
+        input: "A=\"x\u{2028}y\"",
+        expected: &[("A", "x\u{2028}y")],
+    },
+    // line_endings: leading line separators
+    Vector {
+        name: "u2028_leading",
+        category: "line_endings",
+        input: "\u{2028}\u{2028}A=1",
+        expected: &[("A", "1")],
+    },
+    // line_endings: mixed LF and paragraph separators
+    Vector {
+        name: "u2028_mixed_with_lf",
+        category: "line_endings",
+        input: "A=1\u{2028}B=2\u{a}C=3\u{2029}D=4",
+        expected: &[("A", "1\u{2028}B=2"), ("C", "3\u{2029}D=4")],
+    },
+    // edge: nul byte inside a quoted value
+    Vector {
+        name: "nul_in_quoted",
+        category: "edge",
+        input: "A=\"va\u{0}lue\"",
+        expected: &[("A", "va\u{0}lue")],
+    },
+    // edge: nul byte inside a key
+    Vector {
+        name: "nul_in_key",
+        category: "edge",
+        input: "A\u{0}B=v",
+        expected: &[],
+    },
+    // edge: nul byte at end of value
+    Vector {
+        name: "nul_trailing",
+        category: "edge",
+        input: "A=v\u{0}",
+        expected: &[("A", "v\u{0}")],
+    },
 ];

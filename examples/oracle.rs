@@ -24,11 +24,10 @@
 //! (which would make the process environment and the JS `processEnv` object
 //! disagree about what is already set) cannot happen.
 
-use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-use dotenv_compat::Options;
+use dotenv_compat::{EnvMap, Options};
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "parse".into());
@@ -76,7 +75,7 @@ fn run_config_case(reader: &mut Reader, out: &mut Vec<u8>) {
     }
 
     let result = dotenv_compat::config_with(&Options {
-        path: paths,
+        path: Some(paths),
         overwrite,
         quiet: true,
         debug: false,
@@ -88,7 +87,7 @@ fn run_config_case(reader: &mut Reader, out: &mut Vec<u8>) {
     touched.sort_unstable();
     touched.dedup();
 
-    let resulting: HashMap<String, String> = touched
+    let resulting: EnvMap = touched
         .iter()
         .filter_map(|key| std::env::var(key).ok().map(|value| (key.clone(), value)))
         .collect();
@@ -136,7 +135,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn write_map(out: &mut Vec<u8>, map: &HashMap<String, String>) {
+fn write_map(out: &mut Vec<u8>, map: &EnvMap) {
     out.extend_from_slice(&(map.len() as u32).to_le_bytes());
     for (key, value) in map {
         write_field(out, key.as_bytes());

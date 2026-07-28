@@ -1,117 +1,764 @@
 [
-  { "name": "basic_simple", "category": "basic", "input": "BASIC=basic", "description": "simplest key=value" },
-  { "name": "basic_multiple", "category": "basic", "input": "A=1\nB=2\nC=3", "description": "several pairs" },
-  { "name": "basic_empty_file", "category": "basic", "input": "", "description": "empty input yields empty map" },
-  { "name": "basic_empty_value", "category": "basic", "input": "EMPTY=", "description": "key with no value" },
-  { "name": "basic_empty_value_ws", "category": "basic", "input": "EMPTY=   ", "description": "value of only spaces trims to empty" },
-  { "name": "basic_spaces_around_equals", "category": "basic", "input": "SPACED   =    value", "description": "whitespace around separator" },
-  { "name": "basic_trailing_newline", "category": "basic", "input": "A=1\n", "description": "file ends with newline" },
-  { "name": "basic_blank_lines", "category": "basic", "input": "A=1\n\n\n\nB=2", "description": "blank lines between entries" },
-  { "name": "basic_leading_blank_lines", "category": "basic", "input": "\n\n\nA=1", "description": "leading blank lines" },
-  { "name": "basic_indented", "category": "basic", "input": "    INDENTED=yes", "description": "leading whitespace before key" },
-  { "name": "basic_duplicate_key", "category": "basic", "input": "DUP=first\nDUP=second", "description": "last assignment wins" },
-  { "name": "basic_unicode_value", "category": "basic", "input": "UNI=héllo → 世界 🎉", "description": "non-ascii value" },
-  { "name": "basic_unicode_key", "category": "basic", "input": "KÉY=value", "description": "non-ascii key is not \\w" },
-  { "name": "basic_no_separator", "category": "basic", "input": "JUSTAKEY", "description": "line without separator is skipped" },
-  { "name": "basic_only_equals", "category": "basic", "input": "=value", "description": "missing key" },
-  { "name": "basic_value_with_equals", "category": "basic", "input": "URL=postgres://u:p@h/db?a=b&c=d", "description": "equals signs inside value" },
-  { "name": "basic_colon_separator", "category": "basic", "input": "COLON: value", "description": "colon plus space separator" },
-  { "name": "basic_colon_no_space", "category": "basic", "input": "COLON:value", "description": "colon needs following whitespace" },
-  { "name": "basic_yaml_ish", "category": "basic", "input": "A: 1\nB: 2", "description": "yaml-style block" },
-
-  { "name": "quotes_single", "category": "quotes", "input": "S='single quoted'", "description": "single quotes stripped" },
-  { "name": "quotes_double", "category": "quotes", "input": "D=\"double quoted\"", "description": "double quotes stripped" },
-  { "name": "quotes_backtick", "category": "quotes", "input": "B=`backtick quoted`", "description": "backticks stripped" },
-  { "name": "quotes_preserve_inner_spaces", "category": "quotes", "input": "P=\"   padded   \"", "description": "quotes preserve interior whitespace" },
-  { "name": "quotes_padded_outside", "category": "quotes", "input": "P=   \"value\"   ", "description": "whitespace outside quotes trimmed" },
-  { "name": "quotes_single_inside_double", "category": "quotes", "input": "M=\"it's fine\"", "description": "apostrophe inside double quotes" },
-  { "name": "quotes_double_inside_single", "category": "quotes", "input": "M='say \"hi\"'", "description": "double quotes inside single quotes" },
-  { "name": "quotes_backtick_inside_double", "category": "quotes", "input": "M=\"use `cmd` here\"", "description": "backticks inside double quotes" },
-  { "name": "quotes_unbalanced_open_double", "category": "quotes", "input": "U=\"unterminated", "description": "opening quote with no close" },
-  { "name": "quotes_unbalanced_open_single", "category": "quotes", "input": "U='unterminated", "description": "opening single quote with no close" },
-  { "name": "quotes_trailing_only", "category": "quotes", "input": "U=value\"", "description": "quote only at end" },
-  { "name": "quotes_empty_double", "category": "quotes", "input": "E=\"\"", "description": "empty double quoted" },
-  { "name": "quotes_empty_single", "category": "quotes", "input": "E=''", "description": "empty single quoted" },
-  { "name": "quotes_lone_double", "category": "quotes", "input": "E=\"", "description": "single lone quote char as value" },
-  { "name": "quotes_text_after_close", "category": "quotes", "input": "T=\"quoted\" trailing", "description": "junk after closing quote" },
-  { "name": "quotes_two_quoted_on_line", "category": "quotes", "input": "T=\"a\" \"b\"", "description": "two quoted runs on one line" },
-  { "name": "quotes_mixed_open_close", "category": "quotes", "input": "M=\"mismatched'", "description": "opening double, closing single" },
-  { "name": "quotes_nested_same", "category": "quotes", "input": "N=\"outer \"inner\" outer\"", "description": "nested same quote char" },
-
-  { "name": "escape_n_in_double", "category": "escapes", "input": "N=\"line1\\nline2\"", "description": "backslash-n expands in double quotes" },
-  { "name": "escape_r_in_double", "category": "escapes", "input": "R=\"a\\rb\"", "description": "backslash-r expands in double quotes" },
-  { "name": "escape_n_in_single", "category": "escapes", "input": "N='line1\\nline2'", "description": "no expansion in single quotes" },
-  { "name": "escape_n_in_backtick", "category": "escapes", "input": "N=`line1\\nline2`", "description": "no expansion in backticks" },
-  { "name": "escape_n_unquoted", "category": "escapes", "input": "N=line1\\nline2", "description": "no expansion when unquoted" },
-  { "name": "escape_double_backslash_n", "category": "escapes", "input": "N=\"a\\\\nb\"", "description": "escaped backslash before n" },
-  { "name": "escape_escaped_quote_double", "category": "escapes", "input": "Q=\"say \\\"hi\\\"\"", "description": "escaped double quotes inside double quotes" },
-  { "name": "escape_escaped_quote_single", "category": "escapes", "input": "Q='it\\'s'", "description": "escaped single quote inside single quotes" },
-  { "name": "escape_escaped_backtick", "category": "escapes", "input": "Q=`a\\`b`", "description": "escaped backtick inside backticks" },
-  { "name": "escape_trailing_backslash", "category": "escapes", "input": "B=\"ends with backslash\\\\\"", "description": "value ending in escaped backslash" },
-  { "name": "escape_t_not_expanded", "category": "escapes", "input": "T=\"tab\\there\"", "description": "backslash-t is not expanded" },
-  { "name": "escape_unicode_seq_not_expanded", "category": "escapes", "input": "U=\"\\u0041\"", "description": "unicode escapes are not expanded" },
-  { "name": "escape_unterminated_with_escaped_quote", "category": "escapes", "input": "Q='a\\'b", "description": "unterminated single quote containing escaped quote" },
-  { "name": "escape_n_unterminated_double", "category": "escapes", "input": "N=\"a\\nb", "description": "expansion still applies to unterminated double quote" },
-
-  { "name": "comment_full_line", "category": "comments", "input": "# just a comment", "description": "whole-line comment ignored" },
-  { "name": "comment_only_file", "category": "comments", "input": "# one\n# two\n# three", "description": "file of only comments" },
-  { "name": "comment_indented", "category": "comments", "input": "   # indented comment\nA=1", "description": "indented comment ignored" },
-  { "name": "comment_inline_spaced", "category": "comments", "input": "A=value # comment", "description": "inline comment after unquoted value" },
-  { "name": "comment_inline_no_space", "category": "comments", "input": "A=value#comment", "description": "hash with no preceding space still ends value" },
-  { "name": "comment_hash_in_double_quotes", "category": "comments", "input": "A=\"value # not comment\"", "description": "hash inside double quotes is literal" },
-  { "name": "comment_hash_in_single_quotes", "category": "comments", "input": "A='value # not comment'", "description": "hash inside single quotes is literal" },
-  { "name": "comment_after_quoted", "category": "comments", "input": "A=\"value\" # comment", "description": "comment after closing quote" },
-  { "name": "comment_hash_only_value", "category": "comments", "input": "A=#", "description": "value is only a hash" },
-  { "name": "comment_url_fragment", "category": "comments", "input": "URL=http://x.test/page#frag", "description": "url fragment is treated as comment" },
-
-  { "name": "export_basic", "category": "export", "input": "export EXPORTED=yes", "description": "export keyword stripped" },
-  { "name": "export_multiple_spaces", "category": "export", "input": "export    SPACED=yes", "description": "several spaces after export" },
-  { "name": "export_tab", "category": "export", "input": "export\tTABBED=yes", "description": "tab after export" },
-  { "name": "export_as_key", "category": "export", "input": "export=value", "description": "export used as a key name" },
-  { "name": "export_quoted_value", "category": "export", "input": "export Q=\"quoted\"", "description": "export with quoted value" },
-  { "name": "export_indented", "category": "export", "input": "   export I=1", "description": "indented export" },
-  { "name": "export_alone", "category": "export", "input": "export\nA=1", "description": "bare export followed by a pair" },
-
-  { "name": "multiline_double", "category": "multiline", "input": "M=\"first\nsecond\nthird\"", "description": "literal newlines inside double quotes" },
-  { "name": "multiline_single", "category": "multiline", "input": "M='first\nsecond'", "description": "literal newlines inside single quotes" },
-  { "name": "multiline_backtick", "category": "multiline", "input": "M=`first\nsecond`", "description": "literal newlines inside backticks" },
-  { "name": "multiline_then_key", "category": "multiline", "input": "M=\"a\nb\"\nAFTER=1", "description": "parsing resumes after a multiline value" },
-  { "name": "multiline_pem", "category": "multiline", "input": "KEY=\"-----BEGIN-----\nline1\nline2\n-----END-----\"\nNEXT=ok", "description": "pem-style block" },
-  { "name": "multiline_unterminated", "category": "multiline", "input": "M=\"a\nb\nAFTER=1", "description": "unterminated multiline quote" },
-  { "name": "multiline_with_hash", "category": "multiline", "input": "M=\"a\n# not a comment\nb\"", "description": "hash inside multiline quoted value" },
-
-  { "name": "eol_crlf", "category": "line_endings", "input": "A=1\r\nB=2\r\n", "description": "windows crlf" },
-  { "name": "eol_cr_only", "category": "line_endings", "input": "A=1\rB=2\r", "description": "classic mac cr" },
-  { "name": "eol_mixed", "category": "line_endings", "input": "A=1\r\nB=2\nC=3\rD=4", "description": "mixed line endings" },
-  { "name": "eol_crlf_in_quotes", "category": "line_endings", "input": "M=\"a\r\nb\"", "description": "crlf inside a quoted value is normalized" },
-  { "name": "eol_trailing_cr", "category": "line_endings", "input": "A=value\r", "description": "trailing carriage return stripped" },
-
-  { "name": "key_underscore", "category": "keys", "input": "_LEADING=1", "description": "leading underscore" },
-  { "name": "key_dots", "category": "keys", "input": "a.b.c=1", "description": "dots in key" },
-  { "name": "key_hyphens", "category": "keys", "input": "a-b-c=1", "description": "hyphens in key" },
-  { "name": "key_digits_leading", "category": "keys", "input": "123=numeric", "description": "key starting with digit" },
-  { "name": "key_with_space", "category": "keys", "input": "KEY WITH SPACE=value", "description": "space in key is invalid" },
-  { "name": "key_lowercase", "category": "keys", "input": "lower=1", "description": "lowercase key" },
-  { "name": "key_dollar", "category": "keys", "input": "A$B=1", "description": "dollar is not a key char" },
-  { "name": "key_bracket", "category": "keys", "input": "ARR[0]=1", "description": "brackets are not key chars" },
-
-  { "name": "edge_value_only_hash_comment", "category": "edge", "input": "A=   # comment", "description": "whitespace then comment as value" },
-  { "name": "edge_multiple_equals_spaced", "category": "edge", "input": "A = = b", "description": "two equals separated" },
-  { "name": "edge_key_newline_equals", "category": "edge", "input": "A\n=1", "description": "key and equals on different lines" },
-  { "name": "edge_json_value", "category": "edge", "input": "J={\"a\":1,\"b\":[2,3]}", "description": "raw json as unquoted value" },
-  { "name": "edge_json_quoted", "category": "edge", "input": "J='{\"a\":1}'", "description": "json inside single quotes" },
-  { "name": "edge_long_value", "category": "edge", "input": "LONG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "description": "long single-line value" },
-  { "name": "edge_nul_byte", "category": "edge", "input": "A=va\u0000lue", "description": "nul byte inside value" },
-  { "name": "edge_bom", "category": "edge", "input": "\ufeffA=1", "description": "utf-8 bom before first key" },
-  { "name": "edge_nbsp", "category": "edge", "input": "A=\u00a0value\u00a0", "description": "non-breaking spaces around value" },
-  { "name": "edge_tabs_around", "category": "edge", "input": "A=\tvalue\t", "description": "tabs around value" },
-  { "name": "edge_semicolon", "category": "edge", "input": "A=value;B=other", "description": "semicolon does not separate pairs" },
-  { "name": "edge_windows_path", "category": "edge", "input": "P=C:\\Users\\me\\dir", "description": "windows path with backslashes" },
-  { "name": "edge_windows_path_quoted", "category": "edge", "input": "P=\"C:\\Users\\new\\dir\"", "description": "windows path in double quotes hits \\n expansion" },
-  { "name": "edge_dashes_line", "category": "edge", "input": "---\nA=1", "description": "yaml document separator line" },
-  { "name": "edge_only_whitespace", "category": "edge", "input": "   \n\t\n  ", "description": "whitespace only file" },
-  { "name": "edge_equals_first_char", "category": "edge", "input": "A==b", "description": "double equals" },
-  { "name": "edge_value_starts_with_quote_mid", "category": "edge", "input": "A=say \"hi\"", "description": "unquoted value containing quotes" },
-  { "name": "edge_trailing_spaces_unquoted", "category": "edge", "input": "A=value    \nB=2", "description": "trailing spaces on unquoted value" },
-  { "name": "edge_colon_and_equals", "category": "edge", "input": "A: b=c", "description": "colon separator with equals in value" }
+  {
+    "name": "basic_simple",
+    "category": "basic",
+    "input": "BASIC=basic",
+    "description": "simplest key=value"
+  },
+  {
+    "name": "basic_multiple",
+    "category": "basic",
+    "input": "A=1\nB=2\nC=3",
+    "description": "several pairs"
+  },
+  {
+    "name": "basic_empty_file",
+    "category": "basic",
+    "input": "",
+    "description": "empty input yields empty map"
+  },
+  {
+    "name": "basic_empty_value",
+    "category": "basic",
+    "input": "EMPTY=",
+    "description": "key with no value"
+  },
+  {
+    "name": "basic_empty_value_ws",
+    "category": "basic",
+    "input": "EMPTY=   ",
+    "description": "value of only spaces trims to empty"
+  },
+  {
+    "name": "basic_spaces_around_equals",
+    "category": "basic",
+    "input": "SPACED   =    value",
+    "description": "whitespace around separator"
+  },
+  {
+    "name": "basic_trailing_newline",
+    "category": "basic",
+    "input": "A=1\n",
+    "description": "file ends with newline"
+  },
+  {
+    "name": "basic_blank_lines",
+    "category": "basic",
+    "input": "A=1\n\n\n\nB=2",
+    "description": "blank lines between entries"
+  },
+  {
+    "name": "basic_leading_blank_lines",
+    "category": "basic",
+    "input": "\n\n\nA=1",
+    "description": "leading blank lines"
+  },
+  {
+    "name": "basic_indented",
+    "category": "basic",
+    "input": "    INDENTED=yes",
+    "description": "leading whitespace before key"
+  },
+  {
+    "name": "basic_duplicate_key",
+    "category": "basic",
+    "input": "DUP=first\nDUP=second",
+    "description": "last assignment wins"
+  },
+  {
+    "name": "basic_unicode_value",
+    "category": "basic",
+    "input": "UNI=héllo → 世界 🎉",
+    "description": "non-ascii value"
+  },
+  {
+    "name": "basic_unicode_key",
+    "category": "basic",
+    "input": "KÉY=value",
+    "description": "non-ascii key is not \\w"
+  },
+  {
+    "name": "basic_no_separator",
+    "category": "basic",
+    "input": "JUSTAKEY",
+    "description": "line without separator is skipped"
+  },
+  {
+    "name": "basic_only_equals",
+    "category": "basic",
+    "input": "=value",
+    "description": "missing key"
+  },
+  {
+    "name": "basic_value_with_equals",
+    "category": "basic",
+    "input": "URL=postgres://u:p@h/db?a=b&c=d",
+    "description": "equals signs inside value"
+  },
+  {
+    "name": "basic_colon_separator",
+    "category": "basic",
+    "input": "COLON: value",
+    "description": "colon plus space separator"
+  },
+  {
+    "name": "basic_colon_no_space",
+    "category": "basic",
+    "input": "COLON:value",
+    "description": "colon needs following whitespace"
+  },
+  {
+    "name": "basic_yaml_ish",
+    "category": "basic",
+    "input": "A: 1\nB: 2",
+    "description": "yaml-style block"
+  },
+  {
+    "name": "quotes_single",
+    "category": "quotes",
+    "input": "S='single quoted'",
+    "description": "single quotes stripped"
+  },
+  {
+    "name": "quotes_double",
+    "category": "quotes",
+    "input": "D=\"double quoted\"",
+    "description": "double quotes stripped"
+  },
+  {
+    "name": "quotes_backtick",
+    "category": "quotes",
+    "input": "B=`backtick quoted`",
+    "description": "backticks stripped"
+  },
+  {
+    "name": "quotes_preserve_inner_spaces",
+    "category": "quotes",
+    "input": "P=\"   padded   \"",
+    "description": "quotes preserve interior whitespace"
+  },
+  {
+    "name": "quotes_padded_outside",
+    "category": "quotes",
+    "input": "P=   \"value\"   ",
+    "description": "whitespace outside quotes trimmed"
+  },
+  {
+    "name": "quotes_single_inside_double",
+    "category": "quotes",
+    "input": "M=\"it's fine\"",
+    "description": "apostrophe inside double quotes"
+  },
+  {
+    "name": "quotes_double_inside_single",
+    "category": "quotes",
+    "input": "M='say \"hi\"'",
+    "description": "double quotes inside single quotes"
+  },
+  {
+    "name": "quotes_backtick_inside_double",
+    "category": "quotes",
+    "input": "M=\"use `cmd` here\"",
+    "description": "backticks inside double quotes"
+  },
+  {
+    "name": "quotes_unbalanced_open_double",
+    "category": "quotes",
+    "input": "U=\"unterminated",
+    "description": "opening quote with no close"
+  },
+  {
+    "name": "quotes_unbalanced_open_single",
+    "category": "quotes",
+    "input": "U='unterminated",
+    "description": "opening single quote with no close"
+  },
+  {
+    "name": "quotes_trailing_only",
+    "category": "quotes",
+    "input": "U=value\"",
+    "description": "quote only at end"
+  },
+  {
+    "name": "quotes_empty_double",
+    "category": "quotes",
+    "input": "E=\"\"",
+    "description": "empty double quoted"
+  },
+  {
+    "name": "quotes_empty_single",
+    "category": "quotes",
+    "input": "E=''",
+    "description": "empty single quoted"
+  },
+  {
+    "name": "quotes_lone_double",
+    "category": "quotes",
+    "input": "E=\"",
+    "description": "single lone quote char as value"
+  },
+  {
+    "name": "quotes_text_after_close",
+    "category": "quotes",
+    "input": "T=\"quoted\" trailing",
+    "description": "junk after closing quote"
+  },
+  {
+    "name": "quotes_two_quoted_on_line",
+    "category": "quotes",
+    "input": "T=\"a\" \"b\"",
+    "description": "two quoted runs on one line"
+  },
+  {
+    "name": "quotes_mixed_open_close",
+    "category": "quotes",
+    "input": "M=\"mismatched'",
+    "description": "opening double, closing single"
+  },
+  {
+    "name": "quotes_nested_same",
+    "category": "quotes",
+    "input": "N=\"outer \"inner\" outer\"",
+    "description": "nested same quote char"
+  },
+  {
+    "name": "escape_n_in_double",
+    "category": "escapes",
+    "input": "N=\"line1\\nline2\"",
+    "description": "backslash-n expands in double quotes"
+  },
+  {
+    "name": "escape_r_in_double",
+    "category": "escapes",
+    "input": "R=\"a\\rb\"",
+    "description": "backslash-r expands in double quotes"
+  },
+  {
+    "name": "escape_n_in_single",
+    "category": "escapes",
+    "input": "N='line1\\nline2'",
+    "description": "no expansion in single quotes"
+  },
+  {
+    "name": "escape_n_in_backtick",
+    "category": "escapes",
+    "input": "N=`line1\\nline2`",
+    "description": "no expansion in backticks"
+  },
+  {
+    "name": "escape_n_unquoted",
+    "category": "escapes",
+    "input": "N=line1\\nline2",
+    "description": "no expansion when unquoted"
+  },
+  {
+    "name": "escape_double_backslash_n",
+    "category": "escapes",
+    "input": "N=\"a\\\\nb\"",
+    "description": "escaped backslash before n"
+  },
+  {
+    "name": "escape_escaped_quote_double",
+    "category": "escapes",
+    "input": "Q=\"say \\\"hi\\\"\"",
+    "description": "escaped double quotes inside double quotes"
+  },
+  {
+    "name": "escape_escaped_quote_single",
+    "category": "escapes",
+    "input": "Q='it\\'s'",
+    "description": "escaped single quote inside single quotes"
+  },
+  {
+    "name": "escape_escaped_backtick",
+    "category": "escapes",
+    "input": "Q=`a\\`b`",
+    "description": "escaped backtick inside backticks"
+  },
+  {
+    "name": "escape_trailing_backslash",
+    "category": "escapes",
+    "input": "B=\"ends with backslash\\\\\"",
+    "description": "value ending in escaped backslash"
+  },
+  {
+    "name": "escape_t_not_expanded",
+    "category": "escapes",
+    "input": "T=\"tab\\there\"",
+    "description": "backslash-t is not expanded"
+  },
+  {
+    "name": "escape_unicode_seq_not_expanded",
+    "category": "escapes",
+    "input": "U=\"\\u0041\"",
+    "description": "unicode escapes are not expanded"
+  },
+  {
+    "name": "escape_unterminated_with_escaped_quote",
+    "category": "escapes",
+    "input": "Q='a\\'b",
+    "description": "unterminated single quote containing escaped quote"
+  },
+  {
+    "name": "escape_n_unterminated_double",
+    "category": "escapes",
+    "input": "N=\"a\\nb",
+    "description": "expansion still applies to unterminated double quote"
+  },
+  {
+    "name": "comment_full_line",
+    "category": "comments",
+    "input": "# just a comment",
+    "description": "whole-line comment ignored"
+  },
+  {
+    "name": "comment_only_file",
+    "category": "comments",
+    "input": "# one\n# two\n# three",
+    "description": "file of only comments"
+  },
+  {
+    "name": "comment_indented",
+    "category": "comments",
+    "input": "   # indented comment\nA=1",
+    "description": "indented comment ignored"
+  },
+  {
+    "name": "comment_inline_spaced",
+    "category": "comments",
+    "input": "A=value # comment",
+    "description": "inline comment after unquoted value"
+  },
+  {
+    "name": "comment_inline_no_space",
+    "category": "comments",
+    "input": "A=value#comment",
+    "description": "hash with no preceding space still ends value"
+  },
+  {
+    "name": "comment_hash_in_double_quotes",
+    "category": "comments",
+    "input": "A=\"value # not comment\"",
+    "description": "hash inside double quotes is literal"
+  },
+  {
+    "name": "comment_hash_in_single_quotes",
+    "category": "comments",
+    "input": "A='value # not comment'",
+    "description": "hash inside single quotes is literal"
+  },
+  {
+    "name": "comment_after_quoted",
+    "category": "comments",
+    "input": "A=\"value\" # comment",
+    "description": "comment after closing quote"
+  },
+  {
+    "name": "comment_hash_only_value",
+    "category": "comments",
+    "input": "A=#",
+    "description": "value is only a hash"
+  },
+  {
+    "name": "comment_url_fragment",
+    "category": "comments",
+    "input": "URL=http://x.test/page#frag",
+    "description": "url fragment is treated as comment"
+  },
+  {
+    "name": "export_basic",
+    "category": "export",
+    "input": "export EXPORTED=yes",
+    "description": "export keyword stripped"
+  },
+  {
+    "name": "export_multiple_spaces",
+    "category": "export",
+    "input": "export    SPACED=yes",
+    "description": "several spaces after export"
+  },
+  {
+    "name": "export_tab",
+    "category": "export",
+    "input": "export\tTABBED=yes",
+    "description": "tab after export"
+  },
+  {
+    "name": "export_as_key",
+    "category": "export",
+    "input": "export=value",
+    "description": "export used as a key name"
+  },
+  {
+    "name": "export_quoted_value",
+    "category": "export",
+    "input": "export Q=\"quoted\"",
+    "description": "export with quoted value"
+  },
+  {
+    "name": "export_indented",
+    "category": "export",
+    "input": "   export I=1",
+    "description": "indented export"
+  },
+  {
+    "name": "export_alone",
+    "category": "export",
+    "input": "export\nA=1",
+    "description": "bare export followed by a pair"
+  },
+  {
+    "name": "multiline_double",
+    "category": "multiline",
+    "input": "M=\"first\nsecond\nthird\"",
+    "description": "literal newlines inside double quotes"
+  },
+  {
+    "name": "multiline_single",
+    "category": "multiline",
+    "input": "M='first\nsecond'",
+    "description": "literal newlines inside single quotes"
+  },
+  {
+    "name": "multiline_backtick",
+    "category": "multiline",
+    "input": "M=`first\nsecond`",
+    "description": "literal newlines inside backticks"
+  },
+  {
+    "name": "multiline_then_key",
+    "category": "multiline",
+    "input": "M=\"a\nb\"\nAFTER=1",
+    "description": "parsing resumes after a multiline value"
+  },
+  {
+    "name": "multiline_pem",
+    "category": "multiline",
+    "input": "KEY=\"-----BEGIN-----\nline1\nline2\n-----END-----\"\nNEXT=ok",
+    "description": "pem-style block"
+  },
+  {
+    "name": "multiline_unterminated",
+    "category": "multiline",
+    "input": "M=\"a\nb\nAFTER=1",
+    "description": "unterminated multiline quote"
+  },
+  {
+    "name": "multiline_with_hash",
+    "category": "multiline",
+    "input": "M=\"a\n# not a comment\nb\"",
+    "description": "hash inside multiline quoted value"
+  },
+  {
+    "name": "eol_crlf",
+    "category": "line_endings",
+    "input": "A=1\r\nB=2\r\n",
+    "description": "windows crlf"
+  },
+  {
+    "name": "eol_cr_only",
+    "category": "line_endings",
+    "input": "A=1\rB=2\r",
+    "description": "classic mac cr"
+  },
+  {
+    "name": "eol_mixed",
+    "category": "line_endings",
+    "input": "A=1\r\nB=2\nC=3\rD=4",
+    "description": "mixed line endings"
+  },
+  {
+    "name": "eol_crlf_in_quotes",
+    "category": "line_endings",
+    "input": "M=\"a\r\nb\"",
+    "description": "crlf inside a quoted value is normalized"
+  },
+  {
+    "name": "eol_trailing_cr",
+    "category": "line_endings",
+    "input": "A=value\r",
+    "description": "trailing carriage return stripped"
+  },
+  {
+    "name": "key_underscore",
+    "category": "keys",
+    "input": "_LEADING=1",
+    "description": "leading underscore"
+  },
+  {
+    "name": "key_dots",
+    "category": "keys",
+    "input": "a.b.c=1",
+    "description": "dots in key"
+  },
+  {
+    "name": "key_hyphens",
+    "category": "keys",
+    "input": "a-b-c=1",
+    "description": "hyphens in key"
+  },
+  {
+    "name": "key_digits_leading",
+    "category": "keys",
+    "input": "123=numeric",
+    "description": "key starting with digit"
+  },
+  {
+    "name": "key_with_space",
+    "category": "keys",
+    "input": "KEY WITH SPACE=value",
+    "description": "space in key is invalid"
+  },
+  {
+    "name": "key_lowercase",
+    "category": "keys",
+    "input": "lower=1",
+    "description": "lowercase key"
+  },
+  {
+    "name": "key_dollar",
+    "category": "keys",
+    "input": "A$B=1",
+    "description": "dollar is not a key char"
+  },
+  {
+    "name": "key_bracket",
+    "category": "keys",
+    "input": "ARR[0]=1",
+    "description": "brackets are not key chars"
+  },
+  {
+    "name": "edge_value_only_hash_comment",
+    "category": "edge",
+    "input": "A=   # comment",
+    "description": "whitespace then comment as value"
+  },
+  {
+    "name": "edge_multiple_equals_spaced",
+    "category": "edge",
+    "input": "A = = b",
+    "description": "two equals separated"
+  },
+  {
+    "name": "edge_key_newline_equals",
+    "category": "edge",
+    "input": "A\n=1",
+    "description": "key and equals on different lines"
+  },
+  {
+    "name": "edge_json_value",
+    "category": "edge",
+    "input": "J={\"a\":1,\"b\":[2,3]}",
+    "description": "raw json as unquoted value"
+  },
+  {
+    "name": "edge_json_quoted",
+    "category": "edge",
+    "input": "J='{\"a\":1}'",
+    "description": "json inside single quotes"
+  },
+  {
+    "name": "edge_long_value",
+    "category": "edge",
+    "input": "LONG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "description": "long single-line value"
+  },
+  {
+    "name": "edge_nul_byte",
+    "category": "edge",
+    "input": "A=va\u0000lue",
+    "description": "nul byte inside value"
+  },
+  {
+    "name": "edge_bom",
+    "category": "edge",
+    "input": "﻿A=1",
+    "description": "utf-8 bom before first key"
+  },
+  {
+    "name": "edge_nbsp",
+    "category": "edge",
+    "input": "A= value ",
+    "description": "non-breaking spaces around value"
+  },
+  {
+    "name": "edge_tabs_around",
+    "category": "edge",
+    "input": "A=\tvalue\t",
+    "description": "tabs around value"
+  },
+  {
+    "name": "edge_semicolon",
+    "category": "edge",
+    "input": "A=value;B=other",
+    "description": "semicolon does not separate pairs"
+  },
+  {
+    "name": "edge_windows_path",
+    "category": "edge",
+    "input": "P=C:\\Users\\me\\dir",
+    "description": "windows path with backslashes"
+  },
+  {
+    "name": "edge_windows_path_quoted",
+    "category": "edge",
+    "input": "P=\"C:\\Users\\new\\dir\"",
+    "description": "windows path in double quotes hits \\n expansion"
+  },
+  {
+    "name": "edge_dashes_line",
+    "category": "edge",
+    "input": "---\nA=1",
+    "description": "yaml document separator line"
+  },
+  {
+    "name": "edge_only_whitespace",
+    "category": "edge",
+    "input": "   \n\t\n  ",
+    "description": "whitespace only file"
+  },
+  {
+    "name": "edge_equals_first_char",
+    "category": "edge",
+    "input": "A==b",
+    "description": "double equals"
+  },
+  {
+    "name": "edge_value_starts_with_quote_mid",
+    "category": "edge",
+    "input": "A=say \"hi\"",
+    "description": "unquoted value containing quotes"
+  },
+  {
+    "name": "edge_trailing_spaces_unquoted",
+    "category": "edge",
+    "input": "A=value    \nB=2",
+    "description": "trailing spaces on unquoted value"
+  },
+  {
+    "name": "edge_colon_and_equals",
+    "category": "edge",
+    "input": "A: b=c",
+    "description": "colon separator with equals in value"
+  },
+  {
+    "name": "proto_key_alone",
+    "category": "prototype",
+    "input": "__proto__=pwned",
+    "description": "__proto__ hits the prototype setter and creates no own property"
+  },
+  {
+    "name": "proto_key_with_others",
+    "category": "prototype",
+    "input": "__proto__=pwned\nA=1",
+    "description": "__proto__ is dropped, siblings survive"
+  },
+  {
+    "name": "proto_key_quoted",
+    "category": "prototype",
+    "input": "__proto__=\"x\"\nB=2",
+    "description": "quoted __proto__ value is still dropped"
+  },
+  {
+    "name": "proto_key_duplicate",
+    "category": "prototype",
+    "input": "__proto__=a\n__proto__=b\nC=3",
+    "description": "repeated __proto__"
+  },
+  {
+    "name": "proto_key_exported",
+    "category": "prototype",
+    "input": "export __proto__=a\nD=4",
+    "description": "__proto__ behind the export keyword"
+  },
+  {
+    "name": "constructor_key",
+    "category": "prototype",
+    "input": "constructor=ok",
+    "description": "constructor is a data property, assignment works"
+  },
+  {
+    "name": "tostring_key",
+    "category": "prototype",
+    "input": "toString=ok",
+    "description": "toString is a data property, assignment works"
+  },
+  {
+    "name": "hasownproperty_key",
+    "category": "prototype",
+    "input": "hasOwnProperty=ok",
+    "description": "hasOwnProperty is a data property, assignment works"
+  },
+  {
+    "name": "u2028_ends_comment",
+    "category": "line_endings",
+    "input": "#c A=1",
+    "description": "U+2028 terminates a whole-line comment"
+  },
+  {
+    "name": "u2028_after_quoted",
+    "category": "line_endings",
+    "input": "A=\"#\" B=2",
+    "description": "U+2028 after a quoted value starts a new record"
+  },
+  {
+    "name": "u2028_after_unquoted",
+    "category": "line_endings",
+    "input": "A=1 B=2",
+    "description": "U+2028 separates two records"
+  },
+  {
+    "name": "u2028_ends_inline_comment",
+    "category": "line_endings",
+    "input": "A=1 # c B=2",
+    "description": "U+2028 ends an inline comment"
+  },
+  {
+    "name": "u2028_hash_no_space",
+    "category": "line_endings",
+    "input": "A=1#c B=2",
+    "description": "U+2028 ends a no-space inline comment"
+  },
+  {
+    "name": "u2029_separates",
+    "category": "line_endings",
+    "input": "A=1 B=2",
+    "description": "U+2029 separates two records"
+  },
+  {
+    "name": "u2028_inside_quotes",
+    "category": "line_endings",
+    "input": "A=\"x y\"",
+    "description": "U+2028 inside a quoted value"
+  },
+  {
+    "name": "u2028_leading",
+    "category": "line_endings",
+    "input": "  A=1",
+    "description": "leading line separators"
+  },
+  {
+    "name": "u2028_mixed_with_lf",
+    "category": "line_endings",
+    "input": "A=1 B=2\nC=3 D=4",
+    "description": "mixed LF and paragraph separators"
+  },
+  {
+    "name": "nul_in_quoted",
+    "category": "edge",
+    "input": "A=\"va\u0000lue\"",
+    "description": "nul byte inside a quoted value"
+  },
+  {
+    "name": "nul_in_key",
+    "category": "edge",
+    "input": "A\u0000B=v",
+    "description": "nul byte inside a key"
+  },
+  {
+    "name": "nul_trailing",
+    "category": "edge",
+    "input": "A=v\u0000",
+    "description": "nul byte at end of value"
+  }
 ]

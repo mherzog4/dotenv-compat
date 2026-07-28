@@ -11,17 +11,17 @@
 //! backtracking behaviour of the quoted alternatives, rather than splitting on lines
 //! (a quoted value may span newlines, so line splitting is not equivalent).
 //!
-//! Known deviation: JavaScript treats U+2028 and U+2029 as line terminators for `^`,
-//! `$` and `.`. We only treat `\n` as one. Reaching that difference requires a
-//! paragraph separator inside a `.env` file.
+//! JavaScript treats U+2028 and U+2029 as line terminators for `^`, `$` and `.`
+//! (but they are NOT excluded by the `[^#\r\n]` value class, and they ARE matched
+//! by `\s`), so `is_line_term` covers all three. `\r` is normalised away first.
 
+use crate::map::EnvMap;
 use std::borrow::Cow;
-use std::collections::HashMap;
 
 /// Parse the contents of a `.env` file into a map of key/value pairs.
 ///
 /// Later assignments to the same key win, matching the reference implementation.
-pub fn parse(src: &[u8]) -> HashMap<String, String> {
+pub fn parse(src: &[u8]) -> EnvMap {
     // `Buffer.prototype.toString()` replaces invalid sequences rather than failing.
     let text = String::from_utf8_lossy(src);
     // /\r\n?/mg -> '\n'
@@ -35,7 +35,7 @@ pub fn parse(src: &[u8]) -> HashMap<String, String> {
     // offsets over the &str if parsing ever shows up in a profile.
     let chars: Vec<char> = normalized.chars().collect();
 
-    let mut out = HashMap::new();
+    let mut out = EnvMap::new();
     let mut pos = 0usize;
 
     while pos <= chars.len() {
@@ -45,10 +45,15 @@ pub fn parse(src: &[u8]) -> HashMap<String, String> {
 
         match match_entry(&chars, start) {
             Some(entry) => {
-                out.insert(entry.key, finish_value(&entry.raw_value));
+                // `obj[key] = value` on a plain object: assigning `__proto__` hits
+                // the prototype setter, so a string value creates no own property
+                // and the key silently disappears from the result.
+                if entry.key != "__proto__" {
+                    out.insert(entry.key, finish_value(&entry.raw_value));
+                }
                 // A match always ends at a `$`, i.e. at a newline or at the end of
                 // input. Resume at the next position where `^` can match.
-                pos = if entry.end == 0 || chars[entry.end - 1] == '\n' {
+                pos = if entry.end == 0 || is_line_term(chars[entry.end - 1]) {
                     entry.end
                 } else {
                     next_line(&chars, entry.end)
@@ -205,7 +210,7 @@ fn match_tail(c: &[char], pos: usize) -> Option<usize> {
     // whitespace, so no comment can start there -- only a newline can end the match.
     c[pos..run_end]
         .iter()
-        .rposition(|ch| *ch == '\n')
+        .rposition(|ch| is_line_term(*ch))
         .map(|offset| pos + offset)
 }
 
@@ -230,7 +235,7 @@ fn strip_quotes(s: &str) -> Cow<'_, str> {
     // Without a newline there is exactly one place `^` can match, so the whole
     // replace collapses to "strip a matched pair of outer quotes". This is the
     // shape of virtually every real value, and it needs no allocation.
-    if !s.contains('\n') {
+    if !s.contains(is_line_term) {
         let bytes = s.as_bytes();
         let quote = match bytes.first() {
             Some(&q @ (b'\'' | b'"' | b'`')) => q,
@@ -255,7 +260,7 @@ fn strip_quotes_multiline(s: &str) -> String {
 
     while i < c.len() {
         // `^` under the `m` flag.
-        let at_line_start = i == 0 || c[i - 1] == '\n';
+        let at_line_start = i == 0 || is_line_term(c[i - 1]);
         if at_line_start {
             if let Some(close) = matching_close(&c, i) {
                 out.extend(&c[copied..i]);
@@ -281,7 +286,7 @@ fn matching_close(c: &[char], start: usize) -> Option<usize> {
     // `[\s\S]*` is greedy, so prefer the last position that satisfies `\1$`.
     (start + 1..c.len())
         .rev()
-        .find(|&e| c[e] == quote && (e + 1 == c.len() || c[e + 1] == '\n'))
+        .find(|&e| c[e] == quote && (e + 1 == c.len() || is_line_term(c[e + 1])))
 }
 
 fn js_trim(s: &str) -> &str {
@@ -305,8 +310,14 @@ fn skip_space(c: &[char], from: usize) -> usize {
 fn next_newline(c: &[char], from: usize) -> usize {
     c[from..]
         .iter()
-        .position(|ch| *ch == '\n')
+        .position(|ch| is_line_term(*ch))
         .map_or(c.len(), |offset| from + offset)
+}
+
+/// A JavaScript LineTerminator, as `^`, `$` and `.` see it. `\r` never reaches
+/// here because normalisation rewrites it to `\n` first.
+fn is_line_term(ch: char) -> bool {
+    matches!(ch, '\n' | '\u{2028}' | '\u{2029}')
 }
 
 fn next_line(c: &[char], from: usize) -> usize {

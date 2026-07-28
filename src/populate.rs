@@ -1,19 +1,16 @@
 //! Port of dotenv's `populate()`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::config::Options;
+use crate::map::EnvMap;
 
 /// Copy `parsed` into `target`, returning only the entries that were actually set.
 ///
 /// Existing keys are left alone unless [`Options::overwrite`] is set. This is the
 /// pure counterpart of [`crate::config`], useful for applying a parsed `.env` to
 /// something other than the process environment.
-pub fn populate(
-    target: &mut HashMap<String, String>,
-    parsed: &HashMap<String, String>,
-    options: &Options,
-) -> HashMap<String, String> {
+pub fn populate(target: &mut EnvMap, parsed: &EnvMap, options: &Options) -> EnvMap {
     // Snapshotted because `set` needs a mutable borrow of `target` at the same time.
     let existing: HashSet<String> = target.keys().cloned().collect();
     let mut set = |key: &str, value: &str| {
@@ -26,15 +23,26 @@ pub fn populate(
 ///
 /// `config()` uses this against the real process environment, where existence has to
 /// be probed with `var_os` (a variable can hold non-UTF-8 bytes and still exist).
+///
+/// Note this reads `options.debug` directly rather than the environment-resolved
+/// flag `config()` computes for itself: the reference's `populate` uses
+/// `Boolean(options.debug)` with no `DOTENV_CONFIG_DEBUG` input, so the two
+/// functions genuinely disagree about what "debug" means.
 pub(crate) fn populate_with(
-    parsed: &HashMap<String, String>,
+    parsed: &EnvMap,
     options: &Options,
     exists: impl Fn(&str) -> bool,
     set: &mut dyn FnMut(&str, &str),
-) -> HashMap<String, String> {
-    let mut populated = HashMap::new();
+) -> EnvMap {
+    let mut populated = EnvMap::new();
 
     for (key, value) in parsed {
+        // `processEnv[key] = ...` and `populated[key] = ...` both hit the prototype
+        // setter for `__proto__`, so neither assignment takes effect.
+        if key == "__proto__" {
+            continue;
+        }
+
         if exists(key) {
             if options.overwrite {
                 set(key, value);
@@ -46,7 +54,7 @@ pub(crate) fn populate_with(
                 } else {
                     "was NOT overwritten"
                 };
-                crate::config::debug(&format!("\"{key}\" is already defined and {verb}"));
+                crate::config::debug_log(&format!("\"{key}\" is already defined and {verb}"));
             }
         } else {
             set(key, value);

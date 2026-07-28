@@ -43,8 +43,12 @@ const VALUES = [
   '"a" "b"', '"a" trail', 'a"b', 'C:\\new\\dir', '"C:\\new\\dir"', '{"j":1}',
   '\\', '\\\\', '"\\\\"', 'x\u00a0y', '\ufeff', '\t', '   ', '"#"', "'#'"
 ]
-const NOISE = ['', '   ', '\t', '# comment', '  # c', '---', 'JUSTAKEY', 'export', '=v', '#', '"', "'"]
-const SOUP = [...`A=1'"\`\\#: \t\nxyz.-_`, '\u00a0', '\ufeff', '\u0000', 'é']
+const NOISE = ['', '   ', '\t', '# comment', '  # c', '---', 'JUSTAKEY', 'export', '=v', '#', '"', "'",
+  'A=1\u2028B=2', 'A="#"\u2028C=3', '__proto__=x', 'constructor=y']
+const SOUP = [...`A=1'"\`\\#: \t\nxyz.-_`, '\u00a0', '\ufeff', '\u0000', 'é',
+  // U+2028/U+2029 are JS line terminators for ^ $ and . but are NOT excluded by
+  // [^#\\r\\n]; a reviewer found a real divergence here that this pool had missed.
+  '\u2028', '\u2029', '\u0085', '\u{1d11e}']
 
 function genLine () {
   if (chance(0.2)) return pick(NOISE)
@@ -63,7 +67,7 @@ function genInput () {
   const n = 1 + Math.floor(rnd() * 4)
   const lines = []
   for (let i = 0; i < n; i++) lines.push(genLine())
-  return lines.join(pick(['\n', '\n', '\n', '\r\n', '\r']))
+  return lines.join(pick(['\n', '\n', '\n', '\r\n', '\r', '\u2028', '\u2029']))
 }
 
 function encodeBatch (inputs) {
