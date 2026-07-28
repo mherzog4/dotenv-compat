@@ -1,0 +1,12 @@
+{
+  "name": "dotenv-rs-oracle",
+  "private": true,
+  "type": "module",
+  "description": "Generates Rust test expectations from the reference JavaScript dotenv implementation.",
+  "scripts": {
+    "gen": "node gen_expected.mjs"
+  },
+  "dependencies": {
+    "dotenv": "17.4.2"
+  }
+}
