@@ -42,6 +42,16 @@ pub struct Options {
     pub debug: bool,
     /// Suppress the summary line. `DOTENV_CONFIG_QUIET` takes precedence.
     pub quiet: bool,
+    /// Text encoding used to read each file. `None` is UTF-8.
+    ///
+    /// Accepts any Node `Buffer` encoding name; an unrecognised one makes the
+    /// read fail, exactly as `fs.readFileSync` throws. Note `base64`, `base64url`
+    /// and `hex` re-encode the bytes rather than decoding them.
+    pub encoding: Option<String>,
+    /// `DOTENV_KEY` for `.env.vault` decryption, overriding the environment.
+    ///
+    /// Comma-separated keys are tried in order, for key rotation.
+    pub dotenv_key: Option<String>,
     /// What [`populate`](crate::populate) treats as "debug". `None` mirrors [`Self::debug`].
     ///
     /// The reference applies `Boolean()` to the raw option here but `parseBoolean`
@@ -76,6 +86,18 @@ impl Options {
         self
     }
 
+    /// Text encoding used to read each file. `None` is UTF-8.
+    pub fn with_encoding(mut self, encoding: Option<String>) -> Self {
+        self.encoding = encoding;
+        self
+    }
+
+    /// `DOTENV_KEY` for `.env.vault` decryption.
+    pub fn with_dotenv_key(mut self, key: Option<String>) -> Self {
+        self.dotenv_key = key;
+        self
+    }
+
     /// The options built from `DOTENV_CONFIG_*`, ported from the reference's
     /// `lib/env-options.js`.
     ///
@@ -103,6 +125,12 @@ impl Options {
             options.debug = parse_boolean(&value);
             // `Boolean(rawString)`, not `parseBoolean` -- see the note above.
             options.populate_debug = Some(!value.is_empty());
+        }
+        if let Some(value) = non_empty("DOTENV_CONFIG_ENCODING") {
+            options.encoding = Some(value);
+        }
+        if let Some(value) = non_empty("DOTENV_CONFIG_DOTENV_KEY") {
+            options.dotenv_key = Some(value);
         }
         if let Ok(value) = std::env::var("DOTENV_CONFIG_OVERRIDE") {
             options.overwrite = !value.is_empty();
@@ -137,63 +165,59 @@ pub struct ConfigResult {
 /// [`parse`](crate::parse) and [`populate`](crate::populate) are safe and touch
 /// no global state; use them if you want to apply a `.env` yourself.
 pub unsafe fn config() -> ConfigResult {
-    let options = Options::default();
-
-    if dotenv_key().is_none() {
-        // SAFETY: forwarded to our own caller by `config` being `unsafe`.
-        return unsafe { config_with(&options) };
-    }
-
-    match vault_path(&options) {
-        None => {
-            // The reference interpolates the null it just computed.
-            warn("you set DOTENV_KEY but you are missing a .env.vault file at null");
-            // SAFETY: forwarded to our own caller by `config` being `unsafe`.
-            unsafe { config_with(&options) }
-        }
-        Some(path) => {
-            // Falling back to a plain `.env` would load a different set of secrets,
-            // so refuse rather than quietly diverge.
-            warn(&format!(
-                "found {} but dotenv-compat cannot decrypt .env.vault files; nothing was loaded",
-                path.display()
-            ));
-            ConfigResult {
-                parsed: EnvMap::new(),
-                error: Some(Error::VaultUnsupported { path }),
-            }
-        }
-    }
+    // SAFETY: forwarded to our own caller by `config` being `unsafe`.
+    unsafe { config_options(&Options::default()) }
 }
 
-/// `_dotenvKey()` -- the `DOTENV_KEY` environment variable, if non-empty.
-fn dotenv_key() -> Option<String> {
-    non_empty("DOTENV_KEY")
-}
+/// [`config`] with explicit options. Ports the reference's `config(options)`.
+///
+/// # Safety
+///
+/// See [`config`].
+pub unsafe fn config_options(options: &Options) -> ConfigResult {
+    if crate::vault::dotenv_key(options).is_none() {
+        // SAFETY: forwarded to our own caller.
+        return unsafe { config_with(options) };
+    }
 
-/// `_vaultPath(options)`.
-fn vault_path(options: &Options) -> Option<PathBuf> {
-    let candidate = match &options.path {
-        Some(paths) if !paths.is_empty() => {
-            // The reference keeps the *last* existing entry, not the first.
-            let mut found = None;
-            for path in paths {
-                if path.exists() {
-                    found = Some(with_vault_suffix(path));
-                }
-            }
-            found?
-        }
-        _ => cwd().join(".env.vault"),
+    let Some(path) = crate::vault::vault_path(options) else {
+        warn("you set DOTENV_KEY but you are missing a .env.vault file at null");
+        // SAFETY: forwarded to our own caller.
+        return unsafe { config_with(options) };
     };
 
-    candidate.exists().then_some(candidate)
+    // SAFETY: forwarded to our own caller.
+    unsafe { config_vault(options, path) }
 }
 
-fn with_vault_suffix(path: &Path) -> PathBuf {
-    match path.to_string_lossy() {
-        text if text.ends_with(".vault") => path.to_path_buf(),
-        text => PathBuf::from(format!("{text}.vault")),
+/// `_configVault(options)`.
+///
+/// # Safety
+///
+/// See [`config`].
+unsafe fn config_vault(options: &Options, path: PathBuf) -> ConfigResult {
+    let debug = env_flag("DOTENV_CONFIG_DEBUG", options.debug);
+    let quiet = env_flag("DOTENV_CONFIG_QUIET", options.quiet);
+    if debug || !quiet {
+        log("loading env from encrypted .env.vault");
+    }
+
+    // SAFETY: forwarded to our own caller.
+    match unsafe { crate::vault::parse_vault(options, path) } {
+        Ok(parsed) => {
+            // SAFETY: forwarded to our own caller.
+            unsafe { populate_process_env(&parsed, options) };
+            ConfigResult {
+                parsed,
+                error: None,
+            }
+        }
+        // The reference throws here; Rust has no exceptions, so it surfaces on
+        // `error` with an empty `parsed`.
+        Err(error) => ConfigResult {
+            parsed: EnvMap::new(),
+            error: Some(error),
+        },
     }
 }
 
@@ -230,23 +254,16 @@ pub unsafe fn config_with(options: &Options) -> ConfigResult {
     let mut last_error = None;
 
     for path in &paths {
-        match std::fs::read(path) {
-            Ok(bytes) => {
-                let parsed = crate::parse(&bytes);
+        match read_decoded(path, options.encoding.as_deref()) {
+            Ok(text) => {
+                let parsed = crate::parse(text.as_bytes());
                 crate::populate(&mut parsed_all, &parsed, options);
             }
-            Err(source) => {
+            Err(error) => {
                 if debug {
-                    debug_log(&format!(
-                        "failed to load {} {}",
-                        path.display(),
-                        crate::error::node_message(path, &source)
-                    ));
+                    debug_log(&format!("failed to load {} {error}", path.display()));
                 }
-                last_error = Some(Error::Io {
-                    path: path.clone(),
-                    source,
-                });
+                last_error = Some(error);
             }
         }
     }
@@ -300,6 +317,25 @@ unsafe fn populate_process_env(parsed: &EnvMap, options: &Options) -> EnvMap {
     )
 }
 
+/// `fs.readFileSync(path, { encoding })`.
+///
+/// An unknown encoding name fails before the file is opened, matching the
+/// `TypeError` the reference throws.
+fn read_decoded(path: &Path, encoding: Option<&str>) -> Result<String, Error> {
+    let encoding = match encoding {
+        None => crate::encoding::Encoding::Utf8,
+        Some(name) => crate::encoding::Encoding::from_name(name)
+            .ok_or_else(|| Error::InvalidEncoding(name.to_string()))?,
+    };
+
+    let bytes = std::fs::read(path).map_err(|source| Error::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    Ok(encoding.decode(&bytes))
+}
+
 /// `parseBoolean(processEnv[name] || fallback)`.
 ///
 /// An unset or empty variable leaves `fallback` in charge; any other value is run
@@ -324,7 +360,7 @@ fn parse_boolean(value: &str) -> bool {
     )
 }
 
-fn cwd() -> PathBuf {
+pub(crate) fn cwd() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
@@ -344,11 +380,66 @@ fn resolve_home(path: &Path) -> PathBuf {
 
 /// `os.homedir()`.
 ///
-/// Known gap: on Unix, Node falls back to `getpwuid()` when `HOME` is unset. That
-/// needs libc, so with no `HOME` we leave the `~` unexpanded instead.
+/// Note an *empty* `HOME` is used as-is, matching libuv; only an unset one falls
+/// through to the password database.
 fn home_dir() -> Option<PathBuf> {
     let name = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(name).map(PathBuf::from)
+    if let Some(value) = std::env::var_os(name) {
+        return Some(PathBuf::from(value));
+    }
+    passwd_home()
+}
+
+/// `getpwuid_r(getuid()).pw_dir`, the fallback libuv uses when `HOME` is unset.
+#[cfg(unix)]
+fn passwd_home() -> Option<PathBuf> {
+    use std::ffi::{CStr, OsString};
+    use std::os::unix::ffi::OsStringExt;
+
+    // SAFETY: getuid is always safe; it cannot fail and touches no memory.
+    let uid = unsafe { libc::getuid() };
+
+    let mut buffer = vec![0u8; 2048];
+    loop {
+        let mut passwd: libc::passwd = unsafe { std::mem::zeroed() };
+        let mut result: *mut libc::passwd = std::ptr::null_mut();
+
+        // SAFETY: `passwd` and `buffer` are live and correctly sized for the
+        // duration of the call, and `result` receives either null or a pointer
+        // into `passwd`.
+        let code = unsafe {
+            libc::getpwuid_r(
+                uid,
+                &mut passwd,
+                buffer.as_mut_ptr() as *mut libc::c_char,
+                buffer.len(),
+                &mut result,
+            )
+        };
+
+        if code == libc::ERANGE && buffer.len() < 1 << 20 {
+            buffer.resize(buffer.len() * 2, 0);
+            continue;
+        }
+        if code != 0 || result.is_null() || passwd.pw_dir.is_null() {
+            return None;
+        }
+
+        // SAFETY: pw_dir points into `buffer`, which outlives this read.
+        let dir = unsafe { CStr::from_ptr(passwd.pw_dir) };
+        let dir = OsString::from_vec(dir.to_bytes().to_vec());
+        return match dir.is_empty() {
+            true => None,
+            false => Some(PathBuf::from(dir)),
+        };
+    }
+}
+
+/// Windows has no password database; libuv falls back to
+/// `GetUserProfileDirectoryW`, which is not wired up here.
+#[cfg(not(unix))]
+fn passwd_home() -> Option<PathBuf> {
+    None
 }
 
 /// `path.relative(process.cwd(), filePath)`.

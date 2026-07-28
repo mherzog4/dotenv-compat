@@ -36,6 +36,7 @@ fn config_and_populate() {
     config_cascades_across_files(&dir);
     config_reports_a_missing_file(&dir);
     config_expands_tilde(&dir);
+    config_honours_the_encoding_option(&dir);
 
     fs::remove_dir_all(&dir).ok();
 }
@@ -147,4 +148,39 @@ fn config_expands_tilde(dir: &Path) {
         Some(home) => unsafe { std::env::set_var(var, home) },
         None => unsafe { std::env::remove_var(var) },
     }
+}
+
+/// Expectations recorded from node: `fs.readFileSync(path, { encoding })`.
+fn config_honours_the_encoding_option(dir: &Path) {
+    let path = dir.join("latin1.env");
+    // `A=café` in latin1, which is not valid UTF-8.
+    fs::write(&path, b"DOTENV_RS_ENC=caf\xe9\n").unwrap();
+
+    let read = |encoding: Option<&str>| {
+        let options = quiet(vec![path.clone()]).with_encoding(encoding.map(String::from));
+        load(&options)
+    };
+
+    // Default is UTF-8, so the stray byte becomes a replacement character.
+    assert_eq!(read(None).parsed["DOTENV_RS_ENC"], "caf\u{fffd}");
+    assert_eq!(read(Some("utf8")).parsed["DOTENV_RS_ENC"], "caf\u{fffd}");
+    assert_eq!(read(Some("latin1")).parsed["DOTENV_RS_ENC"], "café");
+    assert_eq!(read(Some("binary")).parsed["DOTENV_RS_ENC"], "café");
+    // Node masks the high bit rather than rejecting it.
+    assert_eq!(read(Some("ascii")).parsed["DOTENV_RS_ENC"], "cafi");
+    // Names are case-insensitive.
+    assert_eq!(read(Some("LATIN1")).parsed["DOTENV_RS_ENC"], "café");
+
+    // `hex` re-encodes the bytes, so nothing parses as a key/value pair.
+    assert!(read(Some("hex")).parsed.is_empty());
+
+    // An unknown encoding fails the read, exactly as readFileSync throws.
+    let result = read(Some("bogus"));
+    assert!(result.parsed.is_empty());
+    let error = result.error.expect("unknown encoding should be reported");
+    assert_eq!(error.code(), Some("ERR_INVALID_ARG_VALUE"));
+    assert_eq!(
+        error.to_string(),
+        "The argument 'encoding' is invalid encoding. Received 'bogus'"
+    );
 }

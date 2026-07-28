@@ -1,6 +1,6 @@
 [package]
 name = "dotenv-compat"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Bug-for-bug compatible Rust port of the JavaScript dotenv parser"
@@ -17,3 +17,12 @@ name = "dotenv_compat"
 path = "src/lib.rs"
 
 [dependencies]
+# .env.vault decryption. Pure Rust, so no C toolchain is needed on any target.
+aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc"] }
+# DOTENV_KEY is parsed with `new URL()` in the reference; this is the same
+# WHATWG URL standard, so malformed keys are rejected identically.
+url = "2.5"
+
+# os.homedir() falls back to getpwuid() when HOME is unset.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

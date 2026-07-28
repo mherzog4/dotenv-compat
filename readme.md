@@ -11,7 +11,10 @@ Checked against the reference by 127 recorded test vectors and two differential
 fuzzers, plus a split-context adversarial review that compared every function
 against the JavaScript source line by line.
 
-No dependencies.
+Three dependencies, each earning its place: `aes-gcm` for `.env.vault`
+decryption, `url` for `DOTENV_KEY` parsing (the same WHATWG standard `new URL()`
+implements), and `libc` on Unix for the `getpwuid()` home-directory fallback.
+The parser itself and all of Node's `Buffer` encodings are dependency-free.
 
 ## Usage
 
@@ -75,8 +78,10 @@ assert_eq!(written.len(), 1);        // only HOST was written
 | `populate(&mut EnvMap, &EnvMap, &Options) -> EnvMap` | `populate` | Pure; returns only the keys it wrote. |
 | `Options` | | `#[non_exhaustive]`; build with `Options::default()` and the `with_*` methods. `Options::from_env()` ports `lib/env-options.js` only — the `dotenv/config` preload also forces `quiet` on, so add `.with_quiet(true)` to emulate it. |
 | `ConfigResult` | | `parsed`, plus `error` for the last unreadable file. Missing files are not fatal. |
+| `unsafe fn config_options(&Options)` | `config(options)` | Vault-aware, with explicit options. |
+| `decrypt(&str, &str)` | `decrypt` | AES-256-GCM `.env.vault` decryption. |
 | `EnvMap` | a JS object | Ordered string map. Array-index keys enumerate first (ascending), then the rest in insertion order -- exactly as a JS object does. |
-| `Error::kind()` | `err.code` | `ErrorKind::NotFound` is the `ENOENT` equivalent. |
+| `Error::code()` | `err.code` | `"ENOENT"`, `"INVALID_DOTENV_KEY"`, `"DECRYPTION_FAILED"`, … |
 
 `Options::path` is `Option<Vec<PathBuf>>`, mirroring the JavaScript distinction:
 `None` loads the default `./.env`, while `Some(vec![])` loads nothing at all.
@@ -112,28 +117,42 @@ Escape handling matches the reference exactly, which is narrower than people exp
 
 ## Differences from the JavaScript version
 
-Everything below is a deliberate, documented divergence. Everything else is
-intended to match, including behaviour that is arguably a bug upstream.
+The port aims to be exact, including behaviour that is arguably a bug upstream.
+Only two differences remain, both forced by the language rather than chosen:
 
 | | |
 | --- | --- |
-| `.env.vault` / `DOTENV_KEY` | Not supported. When `DOTENV_KEY` is set *and* a vault exists, `config()` refuses with `Error::VaultUnsupported` rather than silently loading a plain `.env`, which would be a different set of secrets. Decryption would need an AES-256-GCM dependency. The missing-vault warning and fallback *are* ported. |
-| `encoding` option | Not supported. Files are read as UTF-8; `DOTENV_CONFIG_ENCODING` is ignored. |
-| `processEnv` option | Use `parse` + `populate` against your own `EnvMap`. |
-| NUL bytes in values | `set_var` panics on an interior NUL, so the value is truncated at it. This lands on the same exported value libuv produces, but `parsed` keeps the full string in both implementations. |
-| `os.homedir()` fallback | With `HOME` unset on Unix, Node falls back to `getpwuid()`; that needs libc, so a leading `~` is left unexpanded instead. |
-| Tip text | The random `// tip:` suffix is ported, but the crate emits its own eight strings verbatim from the reference — they may drift as upstream edits them. |
+| Errors are returned, not thrown | The reference `throw`s for vault failures. Rust has no exceptions, so those surface on `ConfigResult::error` with an empty `parsed`. `Error::code()` gives the JavaScript `err.code`. |
+| Unpaired surrogates | With `encoding: "utf16le"`, a lone surrogate survives in JavaScript but cannot exist in a Rust `String`, so it becomes U+FFFD. |
+| `os.homedir()` on Windows | With `USERPROFILE` unset, libuv calls `GetUserProfileDirectoryW`; that is not wired up, so a leading `~` is left unexpanded. The Unix `getpwuid()` fallback *is* implemented. |
 
 Faithful on purpose, and easy to mistake for bugs:
 
 * `quiet` defaults to `false`, so `config()` prints `◇ injected env (N) from .env // tip: …` to **stdout**.
 * `DOTENV_CONFIG_OVERRIDE=false` turns overriding **on**. The reference copies the raw string into `options.override` and applies `Boolean()`, not `parseBoolean`, so every non-empty value is truthy.
 * `DOTENV_CONFIG_DEBUG` / `DOTENV_CONFIG_QUIET` are read on every `config_with` call and beat the explicit option. They are re-read after population, so a `.env` that sets `DOTENV_CONFIG_QUIET=true` silences its own summary line.
-* A `__proto__` key is silently dropped. Assigning it on a plain JavaScript object hits the prototype setter and creates no own property.
-* `populate`'s debug is a *different flag* from `config`'s (`Options::populate_debug`). The reference applies `Boolean()` to the raw option there and `parseBoolean` in `configDotenv`, so `DOTENV_CONFIG_DEBUG=false` silences config's diagnostics while **enabling** populate's per-key lines.
-* Integer-like keys enumerate first. `ZED=1 / 2=two / AAA=3` yields `2, ZED, AAA`, because JavaScript hoists array-index keys (canonical decimals below 2³²−1) ahead of string keys.
-`◇ injected env (N) from .env` to stderr just like the original. Set `quiet: true`
-to silence it.
+* A `__proto__` key is silently dropped, because assigning it on a plain JavaScript object hits the prototype setter.
+* `populate`'s debug is a *different flag* from `config`'s (`Options::populate_debug`), and `DOTENV_CONFIG_DEBUG=false` silences one while **enabling** the other.
+* Integer-like keys enumerate first: `ZED=1 / 2=two / AAA=3` yields `2, ZED, AAA`.
+* `encoding: "base64"`, `"hex"` and `"base64url"` do not *decode* the file -- they re-encode its bytes into that representation, which the parser then reads. Usually nonsense, but the reference allows it.
+* Loading a vault also injects the `DOTENV_VAULT_*` entries themselves, because the reference reads the vault through `configDotenv`.
+
+## Encrypted `.env.vault`
+
+Set `DOTENV_KEY` (or `Options::with_dotenv_key`) and `config()` decrypts
+`.env.vault` instead of reading `.env`. Comma-separated keys are tried in order,
+for rotation. With no vault present it warns and falls back to the plain file,
+exactly as the reference does.
+
+```rust,no_run
+// SAFETY: call before spawning threads.
+let result = unsafe { dotenv_compat::config() };
+if let Some(error) = &result.error {
+    if error.code() == Some("DECRYPTION_FAILED") {
+        eprintln!("check your DOTENV_KEY");
+    }
+}
+```
 
 ## Thread safety
 

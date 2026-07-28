@@ -19,17 +19,21 @@
 //! ```
 
 mod config;
+mod encoding;
 mod error;
 mod map;
 mod nodepath;
 mod parser;
 mod populate;
+mod vault;
 
-pub use config::{ConfigResult, Options, config, config_with};
+pub use config::{ConfigResult, Options, config, config_options, config_with};
+pub use encoding::Encoding;
 pub use error::Error;
 pub use map::EnvMap;
 pub use parser::parse;
 pub use populate::populate;
+pub use vault::decrypt;
 
 /// The readme's examples are compiled and run as doctests, so they cannot rot.
 #[cfg(doctest)]

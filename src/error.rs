@@ -14,13 +14,19 @@ pub enum Error {
         path: PathBuf,
         source: std::io::Error,
     },
-    /// `DOTENV_KEY` is set and a `.env.vault` exists, but this crate cannot
-    /// decrypt it.
-    ///
-    /// The reference would AES-256-GCM decrypt the vault here. Doing that needs
-    /// a crypto dependency, so rather than silently loading a plain `.env` --
-    /// which is a different set of secrets -- the load is refused.
-    VaultUnsupported { path: PathBuf },
+    /// The `DOTENV_KEY` is malformed. `INVALID_DOTENV_KEY` in JavaScript.
+    InvalidDotenvKey(String),
+    /// The vault could not be decrypted with any supplied key.
+    /// `DECRYPTION_FAILED` in JavaScript.
+    DecryptionFailed,
+    /// The vault has no entry for the environment named by the `DOTENV_KEY`.
+    /// `NOT_FOUND_DOTENV_ENVIRONMENT` in JavaScript.
+    NotFoundDotenvEnvironment(String),
+    /// The vault file could not be parsed. `MISSING_DATA` in JavaScript.
+    MissingData(String),
+    /// An unrecognised `encoding` name. `fs.readFileSync` throws a `TypeError`
+    /// with code `ERR_INVALID_ARG_VALUE` here.
+    InvalidEncoding(String),
 }
 
 impl Error {
@@ -33,14 +39,33 @@ impl Error {
     pub fn kind(&self) -> ErrorKind {
         match self {
             Error::Io { source, .. } => source.kind(),
-            Error::VaultUnsupported { .. } => ErrorKind::Unsupported,
+            _ => ErrorKind::Other,
         }
     }
 
-    /// The file this error is about.
-    pub fn path(&self) -> &Path {
+    /// The JavaScript `err.code`, for the errors that carry one.
+    pub fn code(&self) -> Option<&'static str> {
         match self {
-            Error::Io { path, .. } | Error::VaultUnsupported { path } => path,
+            Error::Io { source, .. } => match source.kind() {
+                ErrorKind::NotFound => Some("ENOENT"),
+                ErrorKind::PermissionDenied => Some("EACCES"),
+                ErrorKind::IsADirectory => Some("EISDIR"),
+                ErrorKind::NotADirectory => Some("ENOTDIR"),
+                _ => None,
+            },
+            Error::InvalidDotenvKey(_) => Some("INVALID_DOTENV_KEY"),
+            Error::DecryptionFailed => Some("DECRYPTION_FAILED"),
+            Error::NotFoundDotenvEnvironment(_) => Some("NOT_FOUND_DOTENV_ENVIRONMENT"),
+            Error::MissingData(_) => Some("MISSING_DATA"),
+            Error::InvalidEncoding(_) => Some("ERR_INVALID_ARG_VALUE"),
+        }
+    }
+
+    /// The file this error is about, when it is about one.
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Error::Io { path, .. } => Some(path),
+            _ => None,
         }
     }
 }
@@ -78,10 +103,18 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Io { path, source } => f.write_str(&node_message(path, source)),
-            Error::VaultUnsupported { path } => write!(
+            // Message text matches the reference exactly.
+            Error::InvalidDotenvKey(detail) => write!(f, "INVALID_DOTENV_KEY: {detail}"),
+            Error::DecryptionFailed => {
+                f.write_str("DECRYPTION_FAILED: Please check your DOTENV_KEY")
+            }
+            Error::NotFoundDotenvEnvironment(detail) => {
+                write!(f, "NOT_FOUND_DOTENV_ENVIRONMENT: {detail}")
+            }
+            Error::MissingData(detail) => write!(f, "MISSING_DATA: {detail}"),
+            Error::InvalidEncoding(name) => write!(
                 f,
-                "DOTENV_KEY is set and {} exists, but dotenv-compat cannot decrypt .env.vault files",
-                path.display()
+                "The argument 'encoding' is invalid encoding. Received '{name}'"
             ),
         }
     }
@@ -91,7 +124,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::Io { source, .. } => Some(source),
-            Error::VaultUnsupported { .. } => None,
+            _ => None,
         }
     }
 }
